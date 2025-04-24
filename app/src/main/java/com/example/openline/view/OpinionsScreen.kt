@@ -30,6 +30,9 @@ import com.example.app.ui.theme.TextSecondary
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
 import com.example.openline.ui.theme.*
+import com.example.openline.viewmodel.fetchUserName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -37,6 +40,7 @@ import com.example.openline.ui.theme.*
 fun OpinionScreen(
     opinion: Opinion,
     comments: List<Comment>,
+    author: String,
     onBack: () -> Unit,
     onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
     onReactComment: (commentId: String, like: Boolean) -> Unit,
@@ -103,7 +107,7 @@ fun OpinionScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "${opinion.userId} • ${opinion.timeStamp.toLocalTime()}",
+                            text = "$author • ${opinion.timeStamp.toLocalTime()}",
                             color = TextSecondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -211,7 +215,10 @@ fun CommentItem(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(comment.userId.toString(), color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                UserName(
+                    userId = comment.userId.toString(),
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(Modifier.weight(1f))
                 Text(
                     comment.timeStamp.toLocalTime().toString(),
@@ -254,3 +261,27 @@ fun CommentItem(
         }
     }
 }
+
+@Composable
+fun UserName(
+    userId: String,
+    modifier: Modifier = Modifier
+) {
+    var name by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(userId) {
+        // run the network call off the main thread
+        val fetched = withContext(Dispatchers.IO) { fetchUserName(userId) }
+        name = fetched ?: "Unknown"
+        /*
+        If fetched is non-null, then name = fetched.
+        If fetched is null, then name = "Unknown".
+         */
+    }
+
+    Text(
+        text = name ?: "Loading…",
+        modifier = modifier
+    )
+}
+

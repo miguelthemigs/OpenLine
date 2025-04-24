@@ -63,18 +63,19 @@ class MainActivity : ComponentActivity() {
                 )
 
                 OpinionScreen(
-                    opinion           = sampleOpinion,
-                    comments          = sampleComments,
-                    onBack            = { finish() },
-                    onReactOpinion    = { opinionId, like ->
+                    opinion = sampleOpinion,
+                    comments = sampleComments,
+                    onBack = { finish() },
+                    onReactOpinion = { opinionId, like ->
                         // TODO: call your API to react to the opinion
                     },
-                    onReactComment    = { commentId, like ->
+                    onReactComment = { commentId, like ->
                         // TODO: call your API to react to the comment
                     },
-                    onReply           = { opinionId ->
+                    onReply = { opinionId ->
                         // TODO: navigate to your “reply” screen
-                    }
+                    },
+                    author  = "Ballerina Cappuccina" // TODO: replace with actual author name
                 )
             }
         }

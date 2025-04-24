@@ -11,14 +11,13 @@ import com.example.app.ui.theme.AgreeGreen
 import com.example.app.ui.theme.CardBackground
 import com.example.app.ui.theme.ColorOnPrimary
 import com.example.app.ui.theme.ColorPrimary
-import com.example.app.ui.theme.ColorPrimaryVariant
+
 import com.example.app.ui.theme.TextPrimary
 
 // 1) Your color palette
 private val LightColors = lightColorScheme(
     primary            = ColorPrimary,
     onPrimary          = ColorOnPrimary,
-    primaryContainer   = ColorPrimaryVariant,
     secondary          = AgreeGreen,
     onSecondary        = ColorOnPrimary,
     background         = CardBackground,
@@ -30,7 +29,7 @@ private val LightColors = lightColorScheme(
 private val DarkColors = darkColorScheme(
     primary            = ColorPrimary,
     onPrimary          = ColorOnPrimary,
-    primaryContainer   = ColorPrimaryVariant,
+    primaryContainer   = ColorPrimary,
     secondary          = AgreeGreen,
     onSecondary        = ColorOnPrimary,
     background         = TextPrimary,
@@ -50,7 +49,7 @@ fun OpenLineTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colors = if (darkTheme) DarkColors else LightColors
+    val colors = LightColors
 
     MaterialTheme(
         colorScheme = colors,

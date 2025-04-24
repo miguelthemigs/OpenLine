@@ -2,11 +2,11 @@ package com.example.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val ColorPrimary          = Color(0xFF0066CC)
-val ColorPrimaryVariant   = Color(0xFF0055AA)
+val ColorPrimary          = Color(0xFF2A8BBA)
+
 val ColorOnPrimary        = Color(0xFFFFFFFF)
 
-val CardBackground        = Color(0xFFF5F5F5)
+val CardBackground        = Color(0xFFD5D5D5)
 val TextPrimary           = Color(0xFF212121)
 val TextSecondary         = Color(0xFF757575)
 
