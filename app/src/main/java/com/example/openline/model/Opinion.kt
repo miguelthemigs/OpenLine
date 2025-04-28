@@ -8,7 +8,7 @@ data class Opinion(
     val itemId: UUID,
     val userId: UUID,
     val text: String,
-    val timeStamp: LocalDateTime,
+    val timestamp: LocalDateTime,
     val likes: Int,
     val dislikes: Int,
 )

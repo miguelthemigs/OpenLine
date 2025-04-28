@@ -25,9 +25,9 @@ class MainActivity : ComponentActivity() {
                 val sampleOpinion = Opinion(
                     id        = UUID.randomUUID(),
                     itemId    = UUID.randomUUID(),
-                    userId    = UUID.randomUUID(),
+                    userId    = UUID.fromString("707cc6b0-6e15-4f44-867e-26118c11bc73"),
                     text      = "I think Tung Tung Sahur is better than Trlalero Tralala",
-                    timeStamp = LocalDateTime.now().minusHours(2),
+                    timestamp = LocalDateTime.now().minusHours(2),
                     likes     = 5788,
                     dislikes  = 156
                 )
@@ -36,9 +36,9 @@ class MainActivity : ComponentActivity() {
                     Comment(
                         id        = UUID.randomUUID(),
                         opinionId = sampleOpinion.id,
-                        userId    = UUID.randomUUID(),
+                        userId    = UUID.fromString("a69b8063-e6c4-4170-a9aa-eee50c40bff5"),
                         text      = "I think Tung Tung Sahur has an immense backstory…",
-                        timeStamp = LocalDateTime.now().minusMinutes(33),
+                        timestamp = LocalDateTime.now().minusMinutes(33),
                         likes     = 1256,
                         dislikes  = 3
                     ),
@@ -46,8 +46,8 @@ class MainActivity : ComponentActivity() {
                         id        = UUID.randomUUID(),
                         opinionId = sampleOpinion.id,
                         userId    = UUID.randomUUID(),
-                        text      = "Why is nobody talking about how Trlalero Tralala is bad at combat…",
-                        timeStamp = LocalDateTime.now().minusMinutes(45),
+                        text      = "Why is nobody talking about how Tralalero Tralala is bad at combat…",
+                        timestamp = LocalDateTime.now().minusMinutes(45),
                         likes     = 20,
                         dislikes  = 456
                     ),
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                         opinionId = sampleOpinion.id,
                         userId    = UUID.randomUUID(),
                         text      = "Sahur and Gusini are my top 2…",
-                        timeStamp = LocalDateTime.now().minusMinutes(55),
+                        timestamp = LocalDateTime.now().minusMinutes(55),
                         likes     = 8888,
                         dislikes  = 78
                     )

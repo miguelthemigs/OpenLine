@@ -1,6 +1,7 @@
 package com.example.openline.ui.screens
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -18,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.OutlinedButtonDefaults
 import com.example.app.ui.theme.AgreeGreen
 import com.example.app.ui.theme.CardBackground
 import com.example.app.ui.theme.ColorOnPrimary
@@ -27,12 +27,13 @@ import com.example.app.ui.theme.DisagreeRed
 import com.example.app.ui.theme.DividerColor
 import com.example.app.ui.theme.TextPrimary
 import com.example.app.ui.theme.TextSecondary
+import com.example.openline.utils.timeAgo
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
-import com.example.openline.ui.theme.*
 import com.example.openline.viewmodel.fetchUserName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -51,7 +52,7 @@ fun OpinionScreen(
         if (selectedTab == "Top") {
             comments.sortedByDescending { it.likes }
         } else {
-            comments.sortedByDescending { it.timeStamp }
+            comments.sortedByDescending { it.timestamp }
         }
     }
 
@@ -107,7 +108,7 @@ fun OpinionScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "$author • ${opinion.timeStamp.toLocalTime()}",
+                            text = "$author • ${opinion.timestamp.toLocalTime()}",
                             color = TextSecondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -215,13 +216,14 @@ fun CommentItem(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
+                // Component to fetch and display user name
                 UserName(
                     userId = comment.userId.toString(),
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    comment.timeStamp.toLocalTime().toString(),
+                    text = timeAgo(comment.timestamp),
                     color = TextSecondary,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -272,6 +274,7 @@ fun UserName(
     LaunchedEffect(userId) {
         // run the network call off the main thread
         val fetched = withContext(Dispatchers.IO) { fetchUserName(userId) }
+        Log.d("UserName", "Fetched name: $fetched")
         name = fetched ?: "Unknown"
         /*
         If fetched is non-null, then name = fetched.
