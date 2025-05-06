@@ -53,6 +53,11 @@ dependencies {
     implementation(libs.material.icons.extended)
     implementation(platform(libs.androidx.compose.bom)) // this is material2
     implementation(libs.androidx.ui.tooling.preview)
+    // ViewModel core
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+
+// Compose integration for ViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
 
     implementation(libs.androidx.tv.material)
     testImplementation(libs.junit)

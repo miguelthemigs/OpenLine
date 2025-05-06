@@ -19,21 +19,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import com.example.app.ui.theme.AgreeGreen
-import com.example.app.ui.theme.CardBackground
-import com.example.app.ui.theme.ColorOnPrimary
-import com.example.app.ui.theme.ColorPrimary
-import com.example.app.ui.theme.DisagreeRed
-import com.example.app.ui.theme.DividerColor
-import com.example.app.ui.theme.TextPrimary
-import com.example.app.ui.theme.TextSecondary
+import com.example.app.ui.theme.*
 import com.example.openline.utils.timeAgo
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
-import com.example.openline.viewmodel.fetchUserName
+import com.example.openline.viewmodel.UsersViewModel
+
+import androidx.lifecycle.viewmodel.compose.viewModel
+
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -45,16 +41,17 @@ fun OpinionScreen(
     onBack: () -> Unit,
     onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
     onReactComment: (commentId: String, like: Boolean) -> Unit,
-    onReply: (opinionId: String) -> Unit
+    onReply: (opinionId: String) -> Unit,
+    onSubmitReply: (opinionId: String, text: String) -> Unit // 🔹 Added callback
 ) {
     var selectedTab by remember { mutableStateOf("Top") }
-    val displayedComments = remember(selectedTab, comments) { // displayedComments recalculates only when selectedTab or comments change:
-        if (selectedTab == "Top") {
-            comments.sortedByDescending { it.likes }
-        } else {
-            comments.sortedByDescending { it.timestamp }
-        }
+    val displayedComments = remember(selectedTab, comments) {
+        if (selectedTab == "Top") comments.sortedByDescending { it.likes }
+        else comments.sortedByDescending { it.timestamp }
     }
+
+    var showReplyField by remember { mutableStateOf(false) }
+    var replyText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -84,9 +81,7 @@ fun OpinionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -99,7 +94,6 @@ fun OpinionScreen(
                     Spacer(Modifier.height(8.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // TODO: replace with user avatar
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = null,
@@ -146,8 +140,28 @@ fun OpinionScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    Button(onClick = { onReply(opinion.id.toString()) }) {
+                    Button(onClick = { showReplyField = true }) {
                         Text("Reply")
+                    }
+
+                    if (showReplyField) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = replyText,
+                            onValueChange = { replyText = it },
+                            label = { Text("Write a reply...") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                onSubmitReply(opinion.id.toString(), replyText)
+                                replyText = ""
+                                showReplyField = false
+                            }
+                        ) {
+                            Text("Post Reply")
+                        }
                     }
                 }
             }
@@ -201,14 +215,11 @@ fun CommentItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // TODO: replace with user avatar
                 Icon(
                     imageVector = Icons.Outlined.CoPresent,
                     contentDescription = null,
@@ -216,7 +227,6 @@ fun CommentItem(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                // Component to fetch and display user name
                 UserName(
                     userId = comment.userId.toString(),
                     modifier = Modifier.weight(1f)
@@ -265,26 +275,14 @@ fun CommentItem(
 }
 
 @Composable
-fun UserName(
-    userId: String,
-    modifier: Modifier = Modifier
-) {
+fun UserName(userId: String, modifier: Modifier = Modifier) {
+    val viewModel: UsersViewModel = viewModel()
     var name by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(userId) {
-        // run the network call off the main thread
-        val fetched = withContext(Dispatchers.IO) { fetchUserName(userId) }
-        Log.d("UserName", "Fetched name: $fetched")
-        name = fetched ?: "Unknown"
-        /*
-        If fetched is non-null, then name = fetched.
-        If fetched is null, then name = "Unknown".
-         */
+        name = viewModel.fetchUserName(userId) ?: "Unknown"
     }
 
-    Text(
-        text = name ?: "Loading…",
-        modifier = modifier
-    )
+    Text(text = name ?: "Loading…", modifier = modifier)
 }
 

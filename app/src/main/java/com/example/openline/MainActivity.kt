@@ -65,17 +65,20 @@ class MainActivity : ComponentActivity() {
                 OpinionScreen(
                     opinion = sampleOpinion,
                     comments = sampleComments,
+                    author = "Ballerina Cappuccina",  // replace with viewModel or Intent data
                     onBack = { finish() },
                     onReactOpinion = { opinionId, like ->
-                        // TODO: call your API to react to the opinion
+                        // TODO: viewModel.reactToOpinion(opinionId, like)
                     },
                     onReactComment = { commentId, like ->
-                        // TODO: call your API to react to the comment
+                        // TODO: viewModel.reactToComment(commentId, like)
                     },
                     onReply = { opinionId ->
-                        // TODO: navigate to your “reply” screen
+                        // we’re handling replies inline, so nothing special here
                     },
-                    author  = "Ballerina Cappuccina" // TODO: replace with actual author name
+                    onSubmitReply = { opinionId, replyText ->
+                        // TODO: viewModel.postReply(opinionId, replyText)
+                    }
                 )
             }
         }
