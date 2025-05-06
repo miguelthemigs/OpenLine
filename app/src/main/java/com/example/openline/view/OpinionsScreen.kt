@@ -1,7 +1,7 @@
 package com.example.openline.ui.screens
 
+import UserName
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -19,17 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app.ui.theme.*
-import com.example.openline.utils.timeAgo
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
+import com.example.openline.utils.timeAgo
 import com.example.openline.viewmodel.UsersViewModel
-
-import androidx.lifecycle.viewmodel.compose.viewModel
-
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -41,8 +37,9 @@ fun OpinionScreen(
     onBack: () -> Unit,
     onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
     onReactComment: (commentId: String, like: Boolean) -> Unit,
-    onReply: (opinionId: String) -> Unit,
-    onSubmitReply: (opinionId: String, text: String) -> Unit // 🔹 Added callback
+
+    onCommentClick: (Comment) -> Unit,
+    onSubmitReply: (opinionId: String, text: String) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf("Top") }
     val displayedComments = remember(selectedTab, comments) {
@@ -110,32 +107,61 @@ fun OpinionScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(
-                            onClick = { onReactOpinion(opinion.id.toString(), true) },
-                            border = BorderStroke(1.dp, AgreeGreen),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AgreeGreen)
-                        ) {
-                            Icon(Icons.Outlined.ThumbUp, contentDescription = "Agree")
-                            Spacer(Modifier.width(4.dp))
-                            Text("AGREE")
+                    // — Reaction buttons with counts underneath —
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Agree column
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            OutlinedButton(
+                                onClick = { onReactOpinion(opinion.id.toString(), true) },
+                                border = BorderStroke(1.dp, AgreeGreen),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AgreeGreen),
+                                modifier = Modifier.defaultMinSize(minWidth = 100.dp)
+                            ) {
+                                Icon(Icons.Outlined.ThumbUp, contentDescription = "Agree")
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "AGREE",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "${opinion.likes}",
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Text("${opinion.likes}", color = TextPrimary)
 
-                        Spacer(Modifier.width(24.dp))
-
-                        OutlinedButton(
-                            onClick = { onReactOpinion(opinion.id.toString(), false) },
-                            border = BorderStroke(1.dp, DisagreeRed),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DisagreeRed)
-                        ) {
-                            Icon(Icons.Outlined.ThumbDown, contentDescription = "Disagree")
-                            Spacer(Modifier.width(4.dp))
-                            Text("DISAGREE")
+                        // Disagree column
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            OutlinedButton(
+                                onClick = { onReactOpinion(opinion.id.toString(), false) },
+                                border = BorderStroke(1.dp, DisagreeRed),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = DisagreeRed),
+                                modifier = Modifier.defaultMinSize(minWidth = 100.dp)
+                            ) {
+                                Icon(Icons.Outlined.ThumbDown, contentDescription = "Disagree")
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "DISAGREE",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "${opinion.dislikes}",
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Text("${opinion.dislikes}", color = TextPrimary)
                     }
 
                     Spacer(Modifier.height(12.dp))
@@ -195,94 +221,22 @@ fun OpinionScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
             ) {
-                items(displayedComments) { comment ->
-                    CommentItem(
-                        comment = comment,
-                        onReact = { like -> onReactComment(comment.id.toString(), like) }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
+                items(displayedComments, key = { it.id }) { comment ->
+                    // Wrap in clickable
+                    Box(modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onCommentClick(comment) }
+                        .padding(vertical = 4.dp)
+                    ) {
+                        CommentItem(
+                            comment = comment,
+                            onReact = { like -> onReactComment(comment.id.toString(), like) }
+                        )
+                    }
             }
         }
-    }
+    } }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun CommentItem(
-    comment: Comment,
-    onReact: (like: Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.CoPresent,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                UserName(
-                    userId = comment.userId.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = timeAgo(comment.timestamp),
-                    color = TextSecondary,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
 
-            Spacer(Modifier.height(4.dp))
-
-            Text(comment.text, color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.ThumbUp,
-                    contentDescription = "Like",
-                    tint = TextSecondary,
-                    modifier = Modifier
-                        .clickable { onReact(true) }
-                        .size(20.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(comment.likes.toString(), color = TextSecondary)
-
-                Spacer(Modifier.width(16.dp))
-
-                Icon(
-                    Icons.Outlined.ThumbDown,
-                    contentDescription = "Dislike",
-                    tint = TextSecondary,
-                    modifier = Modifier
-                        .clickable { onReact(false) }
-                        .size(20.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(comment.dislikes.toString(), color = TextSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-fun UserName(userId: String, modifier: Modifier = Modifier) {
-    val viewModel: UsersViewModel = viewModel()
-    var name by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(userId) {
-        name = viewModel.fetchUserName(userId) ?: "Unknown"
-    }
-
-    Text(text = name ?: "Loading…", modifier = modifier)
-}
 
