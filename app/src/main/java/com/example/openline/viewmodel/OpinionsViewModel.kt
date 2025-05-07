@@ -38,7 +38,7 @@ class OpinionsViewModel : ViewModel() {
                     OutputStreamWriter(conn.outputStream).use { it.write(payload) }
 
                     val code = conn.responseCode
-                    Log.d(TAG, "POST $url → payload=$payload → responseCode=$code")
+                    Log.d(TAG, "postReply → POST $url → payload=$payload → responseCode=$code")
                     code in 200..299
                 } catch (e: Exception) {
                     Log.e(TAG, "postReply error", e)
@@ -48,9 +48,47 @@ class OpinionsViewModel : ViewModel() {
 
             if (success) {
                 Log.d(TAG, "Reply posted successfully")
-                // TODO: update your UI state or reload comments here
+                // TODO: refresh comments or update UI state
             } else {
                 Log.e(TAG, "Failed to post reply")
+            }
+        }
+    }
+
+    /**
+     * Sends a like/dislike reaction to an opinion.
+     * Expects POST /opinions/{opinionId}/react with JSON body { "like": true/false }.
+     */
+    fun reactToOpinion(opinionId: String, like: Boolean) {
+        viewModelScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                try {
+                    val url = URL("$BASE_URL/opinions/$opinionId/react")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        requestMethod  = "POST"
+                        connectTimeout = 5_000
+                        readTimeout    = 5_000
+                        doOutput       = true
+                        setRequestProperty("Content-Type", "application/json; utf-8")
+                    }
+
+                    val payload = JSONObject().put("like", like).toString()
+                    OutputStreamWriter(conn.outputStream).use { it.write(payload) }
+
+                    val code = conn.responseCode
+                    Log.d(TAG, "reactToOpinion → POST $url → payload=$payload → responseCode=$code")
+                    code in 200..299
+                } catch (e: Exception) {
+                    Log.e(TAG, "reactToOpinion error", e)
+                    false
+                }
+            }
+
+            if (success) {
+                Log.d(TAG, "Reaction posted successfully")
+                // TODO: you may want to fetch the updated opinion or adjust local state
+            } else {
+                Log.e(TAG, "Failed to post reaction")
             }
         }
     }
