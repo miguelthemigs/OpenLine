@@ -9,8 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.openline.model.Comment
@@ -23,9 +22,10 @@ fun RepliesScreen(
     parent: Comment,
     allComments: List<Comment>,
     onBack: () -> Unit,
-    onReactComment: (commentId: String, like: Boolean) -> Unit
+    onReactComment: (commentId: String, like: Boolean) -> Unit,
+    onSubmitReply: (parentCommentId: String, text: String) -> Unit // new
 ) {
-    // Debug: log the incoming list once
+    // debug log incoming list
     LaunchedEffect(allComments) {
         Log.d("RepliesScreen", "ALL COMMENTS:")
         allComments.forEach {
@@ -35,8 +35,12 @@ fun RepliesScreen(
 
     val replies = allComments.filter { it.parentCommentId == parent.id }
     LaunchedEffect(replies) {
-        Log.d("RepliesScreen", "Filtered ${replies.size} replies for parent ${parent.id}")
+        Log.d("RepliesScreen", "Found ${replies.size} replies for parent ${parent.id}")
     }
+
+    // local state for the reply input
+    var showReplyField by remember { mutableStateOf(false) }
+    var replyText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -56,6 +60,7 @@ fun RepliesScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Parent comment
             CommentItem(
                 comment = parent,
                 onReact = { onReactComment(parent.id.toString(), it) },
@@ -63,7 +68,47 @@ fun RepliesScreen(
                     .fillMaxWidth()
                     .padding(8.dp)
             )
+
+            // Reply button + input field
+            Spacer(Modifier.height(4.dp))
+            if (!showReplyField) {
+                Button(
+                    onClick = { showReplyField = true },
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Text("Reply")
+                }
+            } else {
+                OutlinedTextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    label = { Text("Write a reply...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = {
+                        onSubmitReply(parent.id.toString(), replyText)
+                        replyText = ""
+                        showReplyField = false
+                    }) {
+                        Text("Post")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
             Divider()
+
+            // Replies list
             if (replies.isEmpty()) {
                 Text(
                     "No replies yet.",

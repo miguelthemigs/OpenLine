@@ -37,7 +37,6 @@ fun OpinionScreen(
     onBack: () -> Unit,
     onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
     onReactComment: (commentId: String, like: Boolean) -> Unit,
-
     onCommentClick: (Comment) -> Unit,
     onSubmitReply: (opinionId: String, text: String) -> Unit
 ) {

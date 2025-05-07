@@ -15,12 +15,14 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class CommentsViewModel : ViewModel() {
 
     companion object {
-        private const val BASE_URL = "https://openline-backend.up.railway.app"
+        private const val BASE_URL = "http://10.0.2.2:5000"
         private const val TAG      = "CommentsViewModel"
     }
 
@@ -45,6 +47,35 @@ class CommentsViewModel : ViewModel() {
             null
         }
     }
+
+    /**
+     * 1.1) GET /comments/opinion/{opinionId}
+     * Returns every Comment whose opinion_id == opinionId
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getCommentsByOpinion(opinionId: String): List<Comment>? = withContext(Dispatchers.IO) {
+        try {
+            val url  = URL("$BASE_URL/comments/opinion/$opinionId")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod   = "GET"
+                connectTimeout  = 5_000
+                readTimeout     = 5_000
+            }
+
+            return@withContext if (conn.responseCode == 200) {
+                // parses the JSON array into a List<Comment>
+                parseCommentList(readBody(conn))
+
+            } else {
+                Log.e(TAG, "getCommentsByOpinion: HTTP ${conn.responseCode}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getCommentsByOpinion error", e)
+            null
+        }
+    }
+
 
     // 2) GET /comments/{id}
     @RequiresApi(Build.VERSION_CODES.O)
@@ -91,6 +122,7 @@ class CommentsViewModel : ViewModel() {
             null
         }
     }
+
 
     // 4) POST /comments
     @RequiresApi(Build.VERSION_CODES.O)
@@ -221,24 +253,64 @@ class CommentsViewModel : ViewModel() {
         }
     }
 
+    /**
+     * POST /comments/{commentId}/react
+     * with JSON { "like": true } or { "like": false }
+     * Returns true if server responded 2xx.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun reactToComment(commentId: String, like: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URL("$BASE_URL/comments/$commentId/react")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod   = "POST"
+                    connectTimeout  = 5_000
+                    readTimeout     = 5_000
+                    doOutput        = true
+                    setRequestProperty("Content-Type", "application/json; utf-8")
+                }
+
+                val payload = JSONObject().put("like", like).toString()
+                OutputStreamWriter(conn.outputStream).use { it.write(payload) }
+
+                val code = conn.responseCode
+                Log.d(TAG, "reactToComment → POST $url → payload=$payload → code=$code")
+                code in 200..299
+            } catch (e: Exception) {
+                Log.e(TAG, "reactToComment error", e)
+                false
+            }
+        }
+
     // ------- Helpers -------
 
     private fun readBody(conn: HttpURLConnection): String =
         BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun parseComment(obj: JSONObject): Comment = Comment(
-        id              = UUID.fromString(obj.getString("id")),
-        opinionId       = UUID.fromString(obj.getString("opinion_id")),
-        userId          = UUID.fromString(obj.getString("user_id")),
-        text            = obj.getString("text"),
-        timestamp       = LocalDateTime.parse(obj.getString("timestamp")),
-        likes           = obj.optInt("likes"),
-        dislikes        = obj.optInt("dislikes"),
-        parentCommentId = obj.optString("parent_comment_id", null)
-            .takeIf { it.isNotBlank() }
-            ?.let { UUID.fromString(it) }
-    )
+    private fun parseComment(obj: JSONObject): Comment {
+        // parse the ISO timestamp with offset and drop the zone
+        val localDt = OffsetDateTime
+            .parse(obj.getString("timestamp"), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            .toLocalDateTime()
+
+        return Comment(
+            id              = UUID.fromString(obj.getString("id")),
+            opinionId       = UUID.fromString(obj.getString("opinionId")),
+            userId          = UUID.fromString(obj.getString("userId")),
+            text            = obj.getString("text"),
+            timestamp       = localDt,
+            likes           = obj.optInt("likes"),
+            dislikes        = obj.optInt("dislikes"),
+            parentCommentId = obj
+                .optString("parentCommentId", "")                                  // default = empty
+                .takeIf { it.isNotBlank() && it != "null" }                       // drop blanks & "null"
+                ?.let { UUID.fromString(it) }
+        )
+    }
+
+
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun parseCommentList(json: String): List<Comment> {
