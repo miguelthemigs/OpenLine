@@ -90,13 +90,14 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // track which comment is tapped
+                // Track which comment is tapped
                 var selectedComment by remember { mutableStateOf<Comment?>(null) }
 
                 if (selectedComment == null) {
                     OpinionScreen(
                         opinion        = sampleOpinion,
                         comments       = sampleComments,
+                                 // pass replies list in
                         author         = "Ballerina Cappuccina",
                         onBack         = { finish() },
                         onReactOpinion = { _, _ -> /* TODO */ },
@@ -105,11 +106,10 @@ class MainActivity : ComponentActivity() {
                         onSubmitReply  = { _, _ -> /* TODO */ }
                     )
                 } else {
-                    // now this ALL list is exactly the same data above:
                     RepliesScreen(
-                        parent      = selectedComment!!,
-                        allComments = sampleComments + sampleReplies,
-                        onBack      = { selectedComment = null },
+                        parent         = selectedComment!!,
+                        allComments    = sampleComments + sampleReplies,
+                        onBack         = { selectedComment = null },
                         onReactComment = { _, _ -> /* TODO */ }
                     )
                 }
