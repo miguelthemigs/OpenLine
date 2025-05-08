@@ -128,7 +128,9 @@ class CommentsViewModel : ViewModel() {
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun createComment(new: Comment): Comment? = withContext(Dispatchers.IO) {
         try {
-            val url  = URL("$BASE_URL/comments")
+            val url = URL("$BASE_URL/comments/")
+            Log.d(TAG, "createComment: POST $url")
+
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod   = "POST"
                 doOutput        = true
@@ -136,30 +138,48 @@ class CommentsViewModel : ViewModel() {
                 readTimeout     = 5_000
                 setRequestProperty("Content-Type", "application/json")
             }
-            // build JSON
-            val payload = JSONObject().apply {
-                put("id", new.id.toString())
-                put("opinion_id", new.opinionId.toString())
-                put("user_id", new.userId.toString())
-                put("text", new.text)
-                put("timestamp", new.timestamp.toString())
-                put("likes", new.likes)
-                put("dislikes", new.dislikes)
-                new.parentCommentId?.let { put("parent_comment_id", it.toString()) }
-            }
-            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
 
-            return@withContext if (conn.responseCode == 201) {
-                parseComment(JSONObject(readBody(conn)))
-            } else {
-                Log.e(TAG, "createComment: HTTP ${conn.responseCode}")
-                null
+            // Build JSON using camelCase keys
+            val payload = JSONObject().apply {
+                put("opinionId",        new.opinionId.toString())
+                put("userId",           new.userId.toString())
+                put("text",             new.text)
+                put("timestamp",        new.timestamp.toString())
+                put("likes",            new.likes)
+                put("dislikes",         new.dislikes)
+                new.parentCommentId?.let { put("parentCommentId", it.toString()) }
+            }.toString()
+
+            Log.d(TAG, "createComment: payload = $payload")
+            conn.outputStream.use { it.write(payload.toByteArray()) }
+
+            val code = conn.responseCode
+            // Read the body exactly once
+            val body = BufferedReader(InputStreamReader(
+                if (code in 200..299) conn.inputStream else conn.errorStream
+            )).use { it.readText() }
+
+            Log.d(TAG, "createComment: responseCode = $code")
+            Log.d(TAG, "createComment: responseBody = $body")
+
+            if (code == 201) {
+                // Supabase returns an array of inserted rows
+                val arr = JSONArray(body)
+                if (arr.length() > 0) {
+                    val obj = arr.getJSONObject(0)
+                    return@withContext parseComment(obj)
+                }
             }
+
+            Log.e(TAG, "createComment failed: HTTP $code, body=$body")
+            return@withContext null
+
         } catch (e: Exception) {
             Log.e(TAG, "createComment error", e)
-            null
+            return@withContext null
         }
     }
+
 
     // 5) PUT /comments/{id}
     @RequiresApi(Build.VERSION_CODES.O)

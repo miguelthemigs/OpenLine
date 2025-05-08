@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/openline/ui/screens/OpinionScreen.kt
 package com.example.openline.ui.screens
 
 import UserName
@@ -6,8 +7,8 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -20,12 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app.ui.theme.*
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
 import com.example.openline.utils.timeAgo
-import com.example.openline.viewmodel.UsersViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -86,13 +85,11 @@ fun OpinionScreen(
                         style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
                         color = TextPrimary
                     )
-
                     Spacer(Modifier.height(8.dp))
-
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = null,
+                            imageVector = Icons.Outlined.CoPresent,
+                            contentDescription = "User avatar",
                             tint = TextSecondary,
                             modifier = Modifier.size(24.dp)
                         )
@@ -103,10 +100,8 @@ fun OpinionScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-
                     Spacer(Modifier.height(12.dp))
-
-                    // — Reaction buttons with counts underneath —
+                    // — Reaction buttons —
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -114,7 +109,7 @@ fun OpinionScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Agree column
+                        // Agree
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             OutlinedButton(
                                 onClick = { onReactOpinion(opinion.id.toString(), true) },
@@ -124,21 +119,12 @@ fun OpinionScreen(
                             ) {
                                 Icon(Icons.Outlined.ThumbUp, contentDescription = "Agree")
                                 Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "AGREE",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontSize = 14.sp
-                                )
+                                Text("AGREE", style = MaterialTheme.typography.labelLarge, fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text(
-                                "${opinion.likes}",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Text("${opinion.likes}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                         }
-
-                        // Disagree column
+                        // Disagree
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             OutlinedButton(
                                 onClick = { onReactOpinion(opinion.id.toString(), false) },
@@ -148,27 +134,14 @@ fun OpinionScreen(
                             ) {
                                 Icon(Icons.Outlined.ThumbDown, contentDescription = "Disagree")
                                 Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "DISAGREE",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontSize = 14.sp
-                                )
+                                Text("DISAGREE", style = MaterialTheme.typography.labelLarge, fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text(
-                                "${opinion.dislikes}",
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Text("${opinion.dislikes}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-
                     Spacer(Modifier.height(12.dp))
-
-                    Button(onClick = { showReplyField = true }) {
-                        Text("Reply")
-                    }
-
+                    Button(onClick = { showReplyField = true }) { Text("Reply") }
                     if (showReplyField) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
@@ -178,13 +151,11 @@ fun OpinionScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                onSubmitReply(opinion.id.toString(), replyText)
-                                replyText = ""
-                                showReplyField = false
-                            }
-                        ) {
+                        Button(onClick = {
+                            onSubmitReply(opinion.id.toString(), replyText)
+                            replyText = ""
+                            showReplyField = false
+                        }) {
                             Text("Post Reply")
                         }
                     }
@@ -214,28 +185,28 @@ fun OpinionScreen(
                 }
             }
 
-            // — Comments List —
-            LazyColumn(
+            // — Comments List: vertically scrollable Column —
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)                       // fill remaining height
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
             ) {
-                items(displayedComments, key = { it.id }) { comment ->
-                    // Wrap in clickable
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onCommentClick(comment) }
-                        .padding(vertical = 4.dp)
+                displayedComments.forEach { comment ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCommentClick(comment) }
+                            .padding(vertical = 4.dp)
                     ) {
                         CommentItem(
                             comment = comment,
                             onReact = { like -> onReactComment(comment.id.toString(), like) }
                         )
                     }
+                }
             }
         }
-    } }
+    }
 }
-
-
-
