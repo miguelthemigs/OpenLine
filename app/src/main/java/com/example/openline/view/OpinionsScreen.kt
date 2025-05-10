@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/openline/ui/screens/OpinionScreen.kt
 package com.example.openline.ui.screens
 
 import UserName
@@ -7,14 +6,14 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CoPresent
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -185,15 +184,13 @@ fun OpinionScreen(
                 }
             }
 
-            // — Comments List: vertically scrollable Column —
-            Column(
+            LazyColumn(
                 modifier = Modifier
-                    .weight(1f)                       // fill remaining height
+                    .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
             ) {
-                displayedComments.forEach { comment ->
+                items(displayedComments) { comment ->
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
