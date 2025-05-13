@@ -64,6 +64,7 @@ fun RepliesScreen(
             CommentItem(
                 comment = parent,
                 onReact = { onReactComment(parent.id.toString(), it) },
+                repliesCount = replies.size,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp)

@@ -91,28 +91,30 @@ fun CommentItem(
             Spacer(Modifier.height(8.dp))
             Divider()
 
-            // Footer row: replies link on left, reactions on right
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (onRepliesClick != null) {
+                if (comment.parentCommentId == null) {
                     Text(
                         text = when {
                             repliesCount > 99 -> "99+ replies ›"
-                            repliesCount > 0  -> "$repliesCount replies ›"
-                            else              -> "No replies"
+                            repliesCount > 0 -> "$repliesCount replies ›"
+                            else -> "No replies"
                         },
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                         color = TextSecondary,
                         modifier = Modifier
-                            .clickable { onRepliesClick() }
+                            .clickable {
+                                if (onRepliesClick != null) {
+                                    onRepliesClick()
+                                }
+                            }
                     )
-                } else {
-                    Spacer(Modifier.width(1.dp))
                 }
+
 
                 Spacer(Modifier.weight(1f))
 

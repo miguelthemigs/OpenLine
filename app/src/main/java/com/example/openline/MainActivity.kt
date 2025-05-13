@@ -55,10 +55,10 @@ class MainActivity : ComponentActivity() {
 
                 } else {
                     if (selectedComment == null) {
-                        // — Main screen —
+
                         OpinionScreen(
                             opinion        = opinion!!,
-                            comments       = topComments,
+                            comments       = allComments,
                             author         = "Ballerina Cappuccina",
                             onBack         = { finish() },
                             onReactOpinion = { _, _ -> /* … */ },
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                                         commentsVm.getCommentsByOpinion(opinionId)
                                             ?.let { allComments = it }
                                     }
-                                    selectedComment = null
+
                                 }
                             }
                         )

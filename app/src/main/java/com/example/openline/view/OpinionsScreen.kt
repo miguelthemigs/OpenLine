@@ -81,7 +81,10 @@ fun OpinionScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = opinion.text,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontStyle = FontStyle.Italic,
+                            fontSize  = 24.sp         // ← added this
+                        ),
                         color = TextPrimary
                     )
                     Spacer(Modifier.height(8.dp))
@@ -183,7 +186,11 @@ fun OpinionScreen(
                     Spacer(Modifier.width(8.dp))
                 }
             }
-
+/*
+LazyColumn:
+Only renders visible comments.
+Handles long threads smoothly.
+ */
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -197,9 +204,12 @@ fun OpinionScreen(
                             .clickable { onCommentClick(comment) }
                             .padding(vertical = 4.dp)
                     ) {
+
                         CommentItem(
                             comment = comment,
+                            repliesCount = comments.count { it.parentCommentId == comment.id },
                             onReact = { like -> onReactComment(comment.id.toString(), like) }
+
                         )
                     }
                 }
