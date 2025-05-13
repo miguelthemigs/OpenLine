@@ -8,12 +8,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.outlined.CoPresent
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,28 +23,37 @@ import com.example.app.ui.theme.*
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
 import com.example.openline.utils.timeAgo
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OpinionScreen(
     opinion: Opinion,
-    comments: List<Comment>,
+    allComments: List<Comment>,
     author: String,
     onBack: () -> Unit,
-    onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
-    onReactComment: (commentId: String, like: Boolean) -> Unit,
+    onReactOpinion: (String, Boolean) -> Unit,
+    onReactComment: (String, Boolean) -> Unit,
     onCommentClick: (Comment) -> Unit,
-    onSubmitReply: (opinionId: String, text: String) -> Unit
+    onSubmitReply: (String, String) -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf("Top") }
-    val displayedComments = remember(selectedTab, comments) {
-        if (selectedTab == "Top") comments.sortedByDescending { it.likes }
-        else comments.sortedByDescending { it.timestamp }
+    // 1) split root‐level vs replies
+    val topComments = remember(allComments) {
+        allComments.filter { it.parentCommentId == null }
+    }
+    val repliesMap = remember(allComments) {
+        allComments.groupBy { it.parentCommentId }
     }
 
-    var showReplyField by remember { mutableStateOf(false) }
-    var replyText by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf("Top") }
+    val displayedComments = remember(selectedTab, topComments) {
+        if (selectedTab == "Top") topComments.sortedByDescending { it.likes }
+        else topComments.sortedByDescending { it.timestamp }
+    }
+
+    // track which comment is expanded
+    var expandedId by remember { mutableStateOf<UUID?>(null) }
 
     Scaffold(
         topBar = {
@@ -70,28 +78,28 @@ fun OpinionScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // — Opinion Card —
+            // — Opinion Header Card —
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
                     Text(
                         text = opinion.text,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontStyle = FontStyle.Italic,
-                            fontSize  = 24.sp         // ← added this
+                            fontSize = 24.sp
                         ),
                         color = TextPrimary
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Outlined.CoPresent,
-                            contentDescription = "User avatar",
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = null,
                             tint = TextSecondary,
                             modifier = Modifier.size(24.dp)
                         )
@@ -103,7 +111,6 @@ fun OpinionScreen(
                         )
                     }
                     Spacer(Modifier.height(12.dp))
-                    // — Reaction buttons —
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -121,10 +128,10 @@ fun OpinionScreen(
                             ) {
                                 Icon(Icons.Outlined.ThumbUp, contentDescription = "Agree")
                                 Spacer(Modifier.width(4.dp))
-                                Text("AGREE", style = MaterialTheme.typography.labelLarge, fontSize = 14.sp)
+                                Text("AGREE", fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text("${opinion.likes}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                            Text("${opinion.likes}", color = TextSecondary)
                         }
                         // Disagree
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -136,29 +143,10 @@ fun OpinionScreen(
                             ) {
                                 Icon(Icons.Outlined.ThumbDown, contentDescription = "Disagree")
                                 Spacer(Modifier.width(4.dp))
-                                Text("DISAGREE", style = MaterialTheme.typography.labelLarge, fontSize = 14.sp)
+                                Text("DISAGREE", fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(4.dp))
-                            Text("${opinion.dislikes}", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { showReplyField = true }) { Text("Reply") }
-                    if (showReplyField) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = replyText,
-                            onValueChange = { replyText = it },
-                            label = { Text("Write a reply...") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            onSubmitReply(opinion.id.toString(), replyText)
-                            replyText = ""
-                            showReplyField = false
-                        }) {
-                            Text("Post Reply")
+                            Text("${opinion.dislikes}", color = TextSecondary)
                         }
                     }
                 }
@@ -168,17 +156,17 @@ fun OpinionScreen(
 
             // — Tabs —
             Row(
-                modifier = Modifier
+                Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                listOf("Top", "Newest").forEach { tab ->
-                    val isSelected = tab == selectedTab
+                listOf("Top","Newest").forEach { tab ->
+                    val sel = tab == selectedTab
                     TextButton(
                         onClick = { selectedTab = tab },
                         colors = ButtonDefaults.textButtonColors(
-                            containerColor = if (isSelected) ColorPrimary else CardBackground,
-                            contentColor = if (isSelected) ColorOnPrimary else TextSecondary
+                            containerColor = if(sel) ColorPrimary else CardBackground,
+                            contentColor   = if(sel) ColorOnPrimary else TextSecondary
                         )
                     ) {
                         Text(tab)
@@ -186,31 +174,62 @@ fun OpinionScreen(
                     Spacer(Modifier.width(8.dp))
                 }
             }
-/*
-LazyColumn:
-Only renders visible comments.
-Handles long threads smoothly.
- */
+
+            // — Comments + Collapsible Replies —
             LazyColumn(
-                modifier = Modifier
+                Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             ) {
-                items(displayedComments) { comment ->
-                    Box(
-                        modifier = Modifier
+                items(displayedComments, key={it.id}) { comment ->
+                    val replies    = repliesMap[comment.id].orEmpty()
+                    val isExpanded = comment.id == expandedId
+                    val replyCount = replies.size
+
+                    // Top‐level comment row (tappable)
+                    CommentItem(
+                        comment       = comment,
+                        repliesCount  = replyCount,
+                        onRepliesClick= { expandedId = if(isExpanded) null else comment.id },
+                        onReact       = { like ->
+                            onReactComment(comment.id.toString(), like)
+                        },
+                        modifier      = Modifier
                             .fillMaxWidth()
                             .clickable { onCommentClick(comment) }
-                            .padding(vertical = 4.dp)
-                    ) {
+                            .padding(vertical = 8.dp)
+                    )
 
-                        CommentItem(
-                            comment = comment,
-                            repliesCount = comments.count { it.parentCommentId == comment.id },
-                            onReact = { like -> onReactComment(comment.id.toString(), like) }
-
-                        )
+                    // Inline previews (NOT tappable)
+                    if(isExpanded && replies.isNotEmpty()){
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start=32.dp, end=16.dp, bottom=16.dp)
+                        ) {
+                            replies.take(2).forEach { reply ->
+                                CommentItem(
+                                    comment       = reply,
+                                    repliesCount  = 0,
+                                    onRepliesClick= null,
+                                    onReact       = { l -> onReactComment(reply.id.toString(),l) },
+                                    modifier      = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                            if(replyCount>2){
+                                Text(
+                                    "See more…",
+                                    style    = MaterialTheme.typography.labelMedium,
+                                    color    = ColorPrimary,
+                                    modifier = Modifier
+                                        .clickable { onCommentClick(comment) }
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

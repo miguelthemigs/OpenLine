@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
 
                         OpinionScreen(
                             opinion        = opinion!!,
-                            comments       = allComments,
+                            allComments       = allComments,
                             author         = "Ballerina Cappuccina",
                             onBack         = { finish() },
                             onReactOpinion = { _, _ -> /* … */ },
