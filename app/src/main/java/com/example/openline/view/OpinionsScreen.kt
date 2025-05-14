@@ -164,6 +164,13 @@ fun OpinionScreen(
                     val sel = tab == selectedTab
                     TextButton(
                         onClick = { selectedTab = tab },
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 32.dp),
+                        // reduce vertical padding so the button is less tall
+                        contentPadding = PaddingValues(
+                            vertical = 4.dp,
+                            horizontal = 12.dp
+                        ),
                         colors = ButtonDefaults.textButtonColors(
                             containerColor = if(sel) ColorPrimary else CardBackground,
                             contentColor   = if(sel) ColorOnPrimary else TextSecondary
@@ -201,7 +208,7 @@ fun OpinionScreen(
                             .padding(vertical = 8.dp)
                     )
 
-                    // Inline previews (NOT tappable)
+                    // Inline previews
                     if(isExpanded && replies.isNotEmpty()){
                         Column(
                             Modifier
