@@ -1,6 +1,5 @@
-package com.example.openline.ui.screens
+package com.example.openline.view
 
-import UserName
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
@@ -23,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.example.app.ui.theme.*
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
-import com.example.openline.utils.timeAgo
+import com.example.openline.ui.screens.CommentItem
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)

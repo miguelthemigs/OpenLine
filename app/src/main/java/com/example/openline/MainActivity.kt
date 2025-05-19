@@ -6,15 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.openline.model.Comment
 import com.example.openline.model.Opinion
-import com.example.openline.ui.screens.OpinionScreen
+import com.example.openline.view.OpinionScreen
 import com.example.openline.ui.theme.OpenLineTheme
 import com.example.openline.view.RepliesScreen
 import com.example.openline.viewmodel.CommentsViewModel
