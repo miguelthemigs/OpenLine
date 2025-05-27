@@ -6,7 +6,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -40,7 +42,7 @@ fun OpinionScreen(
     onCommentClick: (Comment) -> Unit,
     onSubmitReply: (String, String) -> Unit
 ) {
-    // split top-level vs replies
+    // split out top-level vs replies
     val topComments = remember(allComments) {
         allComments.filter { it.parentCommentId == null }
     }
@@ -48,29 +50,29 @@ fun OpinionScreen(
         allComments.groupBy { it.parentCommentId }
     }
 
-    // tab state + sorted list
+    // tabs
     var selectedTab by remember { mutableStateOf("Top") }
-    val displayedComments = remember(selectedTab, topComments) {
+    val displayed = remember(selectedTab, topComments) {
         if (selectedTab == "Top")
             topComments.sortedByDescending { it.likes }
         else
             topComments.sortedByDescending { it.timestamp }
     }
 
-    // inline-replies expansion
+    // track which comment is expanded
     var expandedId by remember { mutableStateOf<UUID?>(null) }
 
-    // reply-to-opinion composer
+    // reply-to-opinion UI state
     var showReplyField by remember { mutableStateOf(false) }
-    var replyText by remember { mutableStateOf("") }
+    var replyText       by remember { mutableStateOf("") }
 
-    // ensure we scroll to top on tab change
+    // always scroll back to top on tab change
     val listState = rememberLazyListState()
     LaunchedEffect(selectedTab) {
         listState.scrollToItem(0)
     }
 
-    // haptic feedback
+    // haptic
     val haptic = LocalHapticFeedback.current
     var lastTopIndex by remember { mutableStateOf(-1) }
 
@@ -84,20 +86,20 @@ fun OpinionScreen(
                     }
                 },
                 colors = TopAppBarDefaults.smallTopAppBarColors(
-                    containerColor             = ColorPrimary,
-                    titleContentColor          = ColorOnPrimary,
+                    containerColor = ColorPrimary,
+                    titleContentColor = ColorOnPrimary,
                     navigationIconContentColor = ColorOnPrimary
                 )
             )
         },
         containerColor = CardBackground
-    ) { innerPadding ->
+    ) { inner ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(inner)
         ) {
-            // — Header Card —
+            // — Header card —
             Card(
                 Modifier
                     .fillMaxWidth()
@@ -107,7 +109,7 @@ fun OpinionScreen(
             ) {
                 Column(Modifier.padding(12.dp)) {
                     Text(
-                        opinion.text,
+                        text = opinion.text,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontStyle = FontStyle.Italic,
                             fontSize  = 24.sp
@@ -135,7 +137,7 @@ fun OpinionScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment     = Alignment.CenterVertically
                     ) {
-                        // Agree
+                        // AGREE
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(
                                 onClick        = { onReactOpinion(opinion.id.toString(), true) },
@@ -151,7 +153,7 @@ fun OpinionScreen(
                             Spacer(Modifier.width(4.dp))
                             Text("${opinion.likes}", style = MaterialTheme.typography.bodySmall)
                         }
-                        // Disagree
+                        // DISAGREE
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(
                                 onClick        = { onReactOpinion(opinion.id.toString(), false) },
@@ -211,15 +213,15 @@ fun OpinionScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                listOf("Top","Newest").forEach { tab ->
+                listOf("Top", "Newest").forEach { tab ->
                     val sel = tab == selectedTab
                     TextButton(
                         onClick        = { selectedTab = tab },
                         modifier       = Modifier.defaultMinSize(minHeight = 28.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
                         colors         = ButtonDefaults.textButtonColors(
-                            containerColor = if(sel) ColorPrimary else CardBackground,
-                            contentColor   = if(sel) ColorOnPrimary else TextSecondary
+                            containerColor = if (sel) ColorPrimary else CardBackground,
+                            contentColor   = if (sel) ColorOnPrimary else TextSecondary
                         )
                     ) {
                         Text(tab, fontSize = 14.sp)
@@ -228,7 +230,7 @@ fun OpinionScreen(
                 }
             }
 
-            // — Animated comments list with alternating tilt —
+            // — Animated, alternating‐tilt comments —
             LazyColumn(
                 state          = listState,
                 modifier       = Modifier
@@ -237,27 +239,27 @@ fun OpinionScreen(
                     .padding(horizontal = 12.dp),
                 contentPadding = PaddingValues(bottom = 250.dp)
             ) {
-                itemsIndexed(displayedComments, key = { _, it -> it.id }) { idx, comment ->
-                    // get this item’s offset
+                itemsIndexed(displayed, key = { _, it -> it.id }) { idx, comment ->
+                    // compute offset
                     val info     = listState.layoutInfo
                     val itemInfo = info.visibleItemsInfo.firstOrNull { it.index == idx }
-                    val vh        = info.viewportSize.height.toFloat()
-                    val offsetY   = itemInfo?.offset?.toFloat() ?: 0f
-                    val normPos   = (1f - (offsetY / vh)).coerceIn(0f, 1f)
+                    val vh       = info.viewportSize.height.toFloat()
+                    val offsetY  = itemInfo?.offset?.toFloat() ?: 0f
+                    val normPos  = (1f - (offsetY / vh)).coerceIn(0f, 1f)
 
-                    // scale & alpha as before
-                    val targetScale    = 0.7f + (normPos * 0.3f)
-                    val targetAlpha    = 0.5f + (normPos * 0.5f)
-                    val animatedScale  by animateFloatAsState(targetScale)
-                    val animatedAlpha  by animateFloatAsState(targetAlpha)
+                    // scale & alpha
+                    val targetScale   = 0.7f + (normPos * 0.3f)
+                    val targetAlpha   = 0.5f + (normPos * 0.5f)
+                    val animScale     by animateFloatAsState(targetScale)
+                    val animAlpha     by animateFloatAsState(targetAlpha)
 
-                    // alternating tilt: even→+10°→0°, odd→−10°→0°
-                    val maxTilt = 10f
-                    val direction = if (idx % 2 == 0) 1 else -1
-                    val targetRotation = (1f - normPos) * maxTilt * direction
-                    val animatedRotation by animateFloatAsState(targetRotation)
+                    // alternating tilt: even→+10°, odd→–10°
+                    val maxTilt       = 10f
+                    val direction     = if (idx % 2 == 0) 1 else -1
+                    val targetRot     = (1f - normPos) * maxTilt * direction
+                    val animRotation  by animateFloatAsState(targetRot)
 
-                    // haptic on top
+                    // haptic when it hits top
                     LaunchedEffect(itemInfo?.offset) {
                         if (itemInfo?.offset == 0 && lastTopIndex != idx) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -265,24 +267,25 @@ fun OpinionScreen(
                         }
                     }
 
+                    // draw the comment
                     CommentItem(
                         comment        = comment,
                         repliesCount   = repliesMap[comment.id].orEmpty().size,
                         onRepliesClick = { expandedId = if (expandedId == comment.id) null else comment.id },
-                        onReact        = { l -> onReactComment(comment.id.toString(), l) },
+                        onReact        = { like -> onReactComment(comment.id.toString(), like) },
                         modifier       = Modifier
                             .graphicsLayer {
-                                scaleX     = animatedScale
-                                scaleY     = animatedScale
-                                this.alpha = animatedAlpha
-                                rotationZ  = animatedRotation
+                                scaleX     = animScale
+                                scaleY     = animScale
+                                this.alpha = animAlpha
+                                rotationZ  = animRotation
                             }
                             .fillMaxWidth()
                             .clickable { onCommentClick(comment) }
                             .padding(vertical = 6.dp)
                     )
 
-                    // inline replies
+                    // inline replies preview
                     if (expandedId == comment.id) {
                         val replies = repliesMap[comment.id].orEmpty()
                         Column(
