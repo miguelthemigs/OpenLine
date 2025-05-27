@@ -11,8 +11,8 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-//private const val BASE_URL = "http://10.0.2.2:5000"
-private const val BASE_URL = "http://android.openline.marijndemul.nl"
+private const val BASE_URL = "http://10.0.2.2:5000"
+//private const val BASE_URL = "http://android.openline.marijndemul.nl"
 private const val TAG = "UsersViewModel"
 
 class UsersViewModel : ViewModel() {

@@ -23,8 +23,8 @@ import java.util.UUID
 class OpinionsViewModel : ViewModel() {
     companion object {
         private const val TAG      = "OpinionsViewModel"
-        //private const val BASE_URL = "http://10.0.2.2:5000"
-        private const val BASE_URL = "http://android.openline.marijndemul.nl"
+        private const val BASE_URL = "http://10.0.2.2:5000"
+        //private const val BASE_URL = "http://android.openline.marijndemul.nl"
     }
 
 

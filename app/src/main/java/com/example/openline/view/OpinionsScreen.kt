@@ -51,8 +51,10 @@ fun OpinionScreen(
     // tab state + sorted list
     var selectedTab by remember { mutableStateOf("Top") }
     val displayedComments = remember(selectedTab, topComments) {
-        if (selectedTab == "Top") topComments.sortedByDescending { it.likes }
-        else                        topComments.sortedByDescending { it.timestamp }
+        if (selectedTab == "Top")
+            topComments.sortedByDescending { it.likes }
+        else
+            topComments.sortedByDescending { it.timestamp }
     }
 
     // inline-replies expansion
@@ -62,13 +64,13 @@ fun OpinionScreen(
     var showReplyField by remember { mutableStateOf(false) }
     var replyText by remember { mutableStateOf("") }
 
-    // scroll state so we always land on the first comment when switching tabs
+    // ensure we scroll to top on tab change
     val listState = rememberLazyListState()
     LaunchedEffect(selectedTab) {
         listState.scrollToItem(0)
     }
 
-    // haptics
+    // haptic feedback
     val haptic = LocalHapticFeedback.current
     var lastTopIndex by remember { mutableStateOf(-1) }
 
@@ -95,7 +97,7 @@ fun OpinionScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // — Header card (unchanged) —
+            // — Header Card —
             Card(
                 Modifier
                     .fillMaxWidth()
@@ -115,7 +117,7 @@ fun OpinionScreen(
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
+                            Icons.Filled.ArrowBack,
                             contentDescription = null,
                             tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
@@ -133,7 +135,7 @@ fun OpinionScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment     = Alignment.CenterVertically
                     ) {
-                        // AGREE
+                        // Agree
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(
                                 onClick        = { onReactOpinion(opinion.id.toString(), true) },
@@ -149,7 +151,7 @@ fun OpinionScreen(
                             Spacer(Modifier.width(4.dp))
                             Text("${opinion.likes}", style = MaterialTheme.typography.bodySmall)
                         }
-                        // DISAGREE
+                        // Disagree
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(
                                 onClick        = { onReactOpinion(opinion.id.toString(), false) },
@@ -203,21 +205,21 @@ fun OpinionScreen(
 
             Divider(color = DividerColor, thickness = 1.dp)
 
-            // — Tabs row —
+            // — Tabs —
             Row(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                listOf("Top", "Newest").forEach { tab ->
+                listOf("Top","Newest").forEach { tab ->
                     val sel = tab == selectedTab
                     TextButton(
                         onClick        = { selectedTab = tab },
                         modifier       = Modifier.defaultMinSize(minHeight = 28.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
                         colors         = ButtonDefaults.textButtonColors(
-                            containerColor = if (sel) ColorPrimary else CardBackground,
-                            contentColor   = if (sel) ColorOnPrimary else TextSecondary
+                            containerColor = if(sel) ColorPrimary else CardBackground,
+                            contentColor   = if(sel) ColorOnPrimary else TextSecondary
                         )
                     ) {
                         Text(tab, fontSize = 14.sp)
@@ -226,33 +228,36 @@ fun OpinionScreen(
                 }
             }
 
-            // — Comments with top-based scaling —
+            // — Animated comments list with alternating tilt —
             LazyColumn(
                 state          = listState,
                 modifier       = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                contentPadding = PaddingValues(bottom = 250.dp) // extra space so last can scroll to top
+                contentPadding = PaddingValues(bottom = 250.dp)
             ) {
                 itemsIndexed(displayedComments, key = { _, it -> it.id }) { idx, comment ->
-                    // find this item’s info in the current viewport
-                    val info = listState.layoutInfo
+                    // get this item’s offset
+                    val info     = listState.layoutInfo
                     val itemInfo = info.visibleItemsInfo.firstOrNull { it.index == idx }
+                    val vh        = info.viewportSize.height.toFloat()
+                    val offsetY   = itemInfo?.offset?.toFloat() ?: 0f
+                    val normPos   = (1f - (offsetY / vh)).coerceIn(0f, 1f)
 
-                    // compute a normalized [0f..1f] based purely on its offset from the top
-                    val viewportHeight = info.viewportSize.height.toFloat()
-                    val offsetY = itemInfo?.offset?.toFloat() ?: 0f
-                    val normPos = (1f - (offsetY / viewportHeight)).coerceIn(0f, 1f)
+                    // scale & alpha as before
+                    val targetScale    = 0.7f + (normPos * 0.3f)
+                    val targetAlpha    = 0.5f + (normPos * 0.5f)
+                    val animatedScale  by animateFloatAsState(targetScale)
+                    val animatedAlpha  by animateFloatAsState(targetAlpha)
 
-                    // map normPos to scale between 0.7..1.0, and alpha 0.5..1.0
-                    val targetScale = 0.7f + (normPos * 0.3f)
-                    val targetAlpha = 0.5f + (normPos * 0.5f)
+                    // alternating tilt: even→+10°→0°, odd→−10°→0°
+                    val maxTilt = 10f
+                    val direction = if (idx % 2 == 0) 1 else -1
+                    val targetRotation = (1f - normPos) * maxTilt * direction
+                    val animatedRotation by animateFloatAsState(targetRotation)
 
-                    val scale by animateFloatAsState(targetScale)
-                    val alpha by animateFloatAsState(targetAlpha)
-
-                    // haptic when a new item *reaches* the very top
+                    // haptic on top
                     LaunchedEffect(itemInfo?.offset) {
                         if (itemInfo?.offset == 0 && lastTopIndex != idx) {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -260,24 +265,24 @@ fun OpinionScreen(
                         }
                     }
 
-                    // draw the comment
                     CommentItem(
-                        comment       = comment,
-                        repliesCount  = repliesMap[comment.id].orEmpty().size,
-                        onRepliesClick= { expandedId = if (expandedId == comment.id) null else comment.id },
-                        onReact       = { like -> onReactComment(comment.id.toString(), like) },
-                        modifier      = Modifier
+                        comment        = comment,
+                        repliesCount   = repliesMap[comment.id].orEmpty().size,
+                        onRepliesClick = { expandedId = if (expandedId == comment.id) null else comment.id },
+                        onReact        = { l -> onReactComment(comment.id.toString(), l) },
+                        modifier       = Modifier
                             .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                                this.alpha = alpha
+                                scaleX     = animatedScale
+                                scaleY     = animatedScale
+                                this.alpha = animatedAlpha
+                                rotationZ  = animatedRotation
                             }
                             .fillMaxWidth()
                             .clickable { onCommentClick(comment) }
                             .padding(vertical = 6.dp)
                     )
 
-                    // inline replies preview
+                    // inline replies
                     if (expandedId == comment.id) {
                         val replies = repliesMap[comment.id].orEmpty()
                         Column(
@@ -287,11 +292,11 @@ fun OpinionScreen(
                         ) {
                             replies.take(2).forEach { r ->
                                 CommentItem(
-                                    comment       = r,
-                                    repliesCount  = 0,
-                                    onRepliesClick= null,
-                                    onReact       = { onReactComment(r.id.toString(), it) },
-                                    modifier      = Modifier
+                                    comment        = r,
+                                    repliesCount   = 0,
+                                    onRepliesClick = null,
+                                    onReact        = { onReactComment(r.id.toString(), it) },
+                                    modifier       = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 6.dp)
                                 )
