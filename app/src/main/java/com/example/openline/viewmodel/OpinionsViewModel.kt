@@ -111,30 +111,40 @@ class OpinionsViewModel : ViewModel() {
      * Sends a like/dislike reaction to an opinion.
      * Calls POST /opinions/{opinionId}/react with { "like": true/false }.
      */
-    fun reactToOpinion(opinionId: String, like: Boolean) {
-        viewModelScope.launch {
-            val success = withContext(Dispatchers.IO) {
-                try {
-                    val url = URL("$BASE_URL/opinions/$opinionId/react")
-                    val conn = (url.openConnection() as HttpURLConnection).apply {
-                        requestMethod  = "POST"
-                        connectTimeout = 5_000
-                        readTimeout    = 5_000
-                        doOutput       = true
-                        setRequestProperty("Content-Type", "application/json; utf-8")
-                    }
-                    val payload = JSONObject().put("like", like).toString()
-                    OutputStreamWriter(conn.outputStream).use { it.write(payload) }
-                    val code = conn.responseCode
-                    Log.d(TAG, "reactToOpinion → POST $url → payload=$payload → code=$code")
-                    code in 200..299
-                } catch (e: Exception) {
-                    Log.e(TAG, "reactToOpinion error", e)
+    suspend fun reactToOpinion(opinionId: String, like: Boolean): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL("$BASE_URL/opinions/$opinionId/react")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod  = "POST"
+                    connectTimeout = 5_000
+                    readTimeout    = 5_000
+                    doOutput       = true
+                    setRequestProperty("Content-Type", "application/json; utf-8")
+                }
+
+                // Include user_id in the payload
+                val payload = JSONObject().apply {
+                    put("like", like)
+                    put("user_id", "a69b8063-e6c4-4170-a9aa-eee50c40bff5") // Your current user ID
+                }.toString()
+
+                OutputStreamWriter(conn.outputStream).use { it.write(payload) }
+                val code = conn.responseCode
+
+                Log.d(TAG, "reactToOpinion → POST $url → payload=$payload → code=$code")
+
+                if (code in 200..299) {
+                    Log.d(TAG, "Reaction posted successfully")
+                    true
+                } else {
+                    Log.e(TAG, "Failed to post reaction, code: $code")
                     false
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "reactToOpinion error", e)
+                false
             }
-            if (success) Log.d(TAG, "Reaction posted successfully")
-            else       Log.e(TAG, "Failed to post reaction")
         }
     }
 }

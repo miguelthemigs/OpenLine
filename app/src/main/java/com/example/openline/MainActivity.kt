@@ -28,98 +28,124 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OpenLineTheme {
-                val opinionId  = "9c30f864-9499-4d57-9a2b-fd2c2d427532"
-                val vm         : OpinionsViewModel = viewModel()
-                val commentsVm : CommentsViewModel = viewModel()
-                val scope      = rememberCoroutineScope()
+                val opinionId = "9c30f864-9499-4d57-9a2b-fd2c2d427532"
+                val vm: OpinionsViewModel = viewModel()
+                val commentsVm: CommentsViewModel = viewModel()
+                val scope = rememberCoroutineScope()
 
-                var opinion         by remember { mutableStateOf<Opinion?>(null) }
-                var allComments     by remember { mutableStateOf<List<Comment>>(emptyList()) }
+                var opinion by remember { mutableStateOf<Opinion?>(null) }
+                var allComments by remember { mutableStateOf<List<Comment>>(emptyList()) }
                 var selectedComment by remember { mutableStateOf<Comment?>(null) }
 
-                // 1) Load opinion + its comments
+                // Reaction state for local UI
+                var userReaction by remember { mutableStateOf<Boolean?>(null) }
+                var opinionLikes by remember { mutableStateOf(0) }
+                var opinionDislikes by remember { mutableStateOf(0) }
+
+                // 1) Load opinion + comments
                 LaunchedEffect(opinionId) {
-                    vm.getOpinion(opinionId) { op -> opinion = op }
+                    vm.getOpinion(opinionId) { op ->
+                        opinion = op
+                        if (op != null) {
+                            opinionLikes = op.likes
+                        }
+                        if (op != null) {
+                            opinionDislikes = op.dislikes
+                        }
+                        userReaction = null // or op.userReaction if your API has it
+                    }
                     commentsVm.getCommentsByOpinion(opinionId)?.let { allComments = it }
                 }
 
-                // 2) Top-level comments only
-                val topComments = allComments.filter { it.parentCommentId == null }
-
                 if (opinion == null) {
-
-                        CircularProgressIndicator()
-
+                    CircularProgressIndicator()
                 } else {
                     if (selectedComment == null) {
-
                         OpinionScreen(
-                            opinion        = opinion!!,
-                            allComments       = allComments,
-                            author         = "Ballerina Cappuccina",
-                            onBack         = { finish() },
-                            onReactOpinion = { _, _ -> /* … */ },
+                            opinion = opinion!!.copy(
+                                likes = opinionLikes,
+                                dislikes = opinionDislikes
+                            ),
+                            allComments = allComments,
+                            author = "Ballerina Cappuccina",
+                            userReaction = userReaction,
+                            onBack = { finish() },
+                            onReactOpinion = { id, like ->
+                                // Disable button to prevent double-clicks
+                                scope.launch {
+                                    try {
+                                        // Call backend API
+                                        vm.reactToOpinion(id, like)
+
+                                        // Refresh opinion data from server to get accurate counts
+                                        vm.getOpinion(id) { updated ->
+                                            updated?.let {
+                                                opinion = it
+                                                opinionLikes = it.likes
+                                                opinionDislikes = it.dislikes
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        println("Error reacting to opinion: ${e.message}")
+                                        // You might want to show a Toast here
+                                    }
+                                }
+                            },
                             onReactComment = { id, like ->
                                 scope.launch {
                                     commentsVm.reactToComment(id, like)
-                                    commentsVm.getCommentsByOpinion(opinionId)
-                                        ?.let { allComments = it }
+                                    commentsVm.getCommentsByOpinion(opinionId)?.let { allComments = it }
                                 }
                             },
                             onCommentClick = { clicked ->
                                 selectedComment = clicked
                             },
-                            onSubmitReply  = { parentId, text ->
+                            onSubmitReply = { parentId, text ->
                                 scope.launch {
                                     commentsVm.createComment(
                                         Comment(
-                                            id              = UUID.randomUUID(),
-                                            opinionId       = UUID.fromString(opinionId),
-                                            userId          = UUID.fromString("a69b8063-e6c4-4170-a9aa-eee50c40bff5"),
-                                            text            = text,
-                                            timestamp       = LocalDateTime.now(),
-                                            likes           = 0,
-                                            dislikes        = 0,
+                                            id = UUID.randomUUID(),
+                                            opinionId = UUID.fromString(opinionId),
+                                            userId = UUID.fromString("a69b8063-e6c4-4170-a9aa-eee50c40bff5"),
+                                            text = text,
+                                            timestamp = LocalDateTime.now(),
+                                            likes = 0,
+                                            dislikes = 0,
                                             parentCommentId = null
                                         )
                                     )?.let {
-                                        commentsVm.getCommentsByOpinion(opinionId)
-                                            ?.let { allComments = it }
+                                        commentsVm.getCommentsByOpinion(opinionId)?.let { allComments = it }
                                     }
                                 }
                             }
                         )
                     } else {
-                        // — Replies screen —
                         RepliesScreen(
-                            parent         = selectedComment!!,
-                            allComments    = allComments,
-                            onBack         = { selectedComment = null },
+                            parent = selectedComment!!,
+                            allComments = allComments,
+                            onBack = { selectedComment = null },
                             onReactComment = { id, like ->
                                 scope.launch {
                                     commentsVm.reactToComment(id, like)
-                                    commentsVm.getCommentsByOpinion(opinionId)
-                                        ?.let { allComments = it }
+                                    commentsVm.getCommentsByOpinion(opinionId)?.let { allComments = it }
                                 }
                             },
-                            onSubmitReply  = { parentId, text ->
+                            onSubmitReply = { parentId, text ->
                                 scope.launch {
                                     commentsVm.createComment(
                                         Comment(
-                                            id              = UUID.randomUUID(),
-                                            opinionId       = UUID.fromString(opinionId),
-                                            userId          = UUID.fromString("a69b8063-e6c4-4170-a9aa-eee50c40bff5"),
-                                            text            = text,
-                                            timestamp       = LocalDateTime.now(),
-                                            likes           = 0,
-                                            dislikes        = 0,
+                                            id = UUID.randomUUID(),
+                                            opinionId = UUID.fromString(opinionId),
+                                            userId = UUID.fromString("a69b8063-e6c4-4170-a9aa-eee50c40bff5"),
+                                            text = text,
+                                            timestamp = LocalDateTime.now(),
+                                            likes = 0,
+                                            dislikes = 0,
                                             parentCommentId = UUID.fromString(parentId)
                                         )
                                     )?.let {
-                                        commentsVm.getCommentsByOpinion(opinionId)
-                                            ?.let { allComments = it }
+                                        commentsVm.getCommentsByOpinion(opinionId)?.let { allComments = it }
                                     }
-
                                 }
                             }
                         )

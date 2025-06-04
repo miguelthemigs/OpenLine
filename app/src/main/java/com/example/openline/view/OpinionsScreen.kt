@@ -1,4 +1,3 @@
-// com/example/openline/view/OpinionScreen.kt
 package com.example.openline.view
 
 import android.os.Build
@@ -50,6 +49,7 @@ fun OpinionScreen(
     opinion: Opinion,
     allComments: List<Comment>,
     author: String,
+    userReaction: Boolean?, // <--- track user's current reaction (null/true/false)
     onBack: () -> Unit,
     onReactOpinion: (String, Boolean) -> Unit,
     onReactComment: (String, Boolean) -> Unit,
@@ -83,7 +83,6 @@ fun OpinionScreen(
     val haptic = LocalHapticFeedback.current
     var lastTopIndex by remember { mutableStateOf(-1) }
 
-    // Get scroll offset for animation (same speed as comments)
     val scrollOffset = remember {
         derivedStateOf {
             if (listState.layoutInfo.visibleItemsInfo.isNotEmpty()) {
@@ -177,9 +176,13 @@ fun OpinionScreen(
                                         OutlinedButton(
                                             onClick = { onReactOpinion(opinion.id.toString(), true) },
                                             border = BorderStroke(1.dp, AgreeGreen),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AgreeGreen),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = AgreeGreen,
+                                                containerColor = if (userReaction == true) AgreeGreen.copy(alpha = 0.18f) else Color.Transparent
+                                            ),
                                             modifier = Modifier.defaultMinSize(minHeight = 32.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                            enabled = userReaction != true // disable if already liked
                                         ) {
                                             Icon(
                                                 Icons.Outlined.ThumbUp,
@@ -197,9 +200,13 @@ fun OpinionScreen(
                                         OutlinedButton(
                                             onClick = { onReactOpinion(opinion.id.toString(), false) },
                                             border = BorderStroke(1.dp, DisagreeRed),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DisagreeRed),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = DisagreeRed,
+                                                containerColor = if (userReaction == false) DisagreeRed.copy(alpha = 0.18f) else Color.Transparent
+                                            ),
                                             modifier = Modifier.defaultMinSize(minHeight = 32.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                            enabled = userReaction != false // disable if already disliked
                                         ) {
                                             Icon(
                                                 Icons.Outlined.ThumbDown,
@@ -285,14 +292,13 @@ fun OpinionScreen(
                                     .fillMaxHeight(0.6f)
                                     .align(Alignment.BottomCenter)
                             ) {
-                                val lineX = size.width / 2f - 30f// Exactly in the middle of screen
-                                val waveHeight = 2.dp.toPx() // Much less wavy - more like a clothesline
-                                val waveLength = 120.dp.toPx() // Longer wavelength for gentler curves
-                                val animationOffset = scrollOffset.value * 0.003f // Slower animation
+                                val lineX = size.width / 2f - 30f
+                                val waveHeight = 2.dp.toPx()
+                                val waveLength = 120.dp.toPx()
+                                val animationOffset = scrollOffset.value * 0.003f
 
                                 val path = Path().apply {
                                     moveTo(lineX, 0f)
-
                                     var y = 0f
                                     while (y <= size.height) {
                                         val waveX = lineX + sin((y / waveLength + animationOffset) * 2 * PI).toFloat() * waveHeight
@@ -303,9 +309,9 @@ fun OpinionScreen(
 
                                 drawPath(
                                     path = path,
-                                    color = Color.Gray.copy(alpha = 0.6f), // More visible since it's the clothesline
+                                    color = Color.Gray.copy(alpha = 0.6f),
                                     style = Stroke(
-                                        width = 2.dp.toPx(), // Slightly thicker for clothesline effect
+                                        width = 2.dp.toPx(),
                                         cap = StrokeCap.Round
                                     )
                                 )
@@ -373,8 +379,8 @@ fun OpinionScreen(
                                             contentDescription = "Clothespin",
                                             modifier = Modifier
                                                 .align(Alignment.TopCenter)
-                                                .offset(y = (-10).dp) // Slight upward offset to "clip" onto the card
-                                                .size(46.dp) // Slightly smaller for better proportion
+                                                .offset(y = (-10).dp)
+                                                .size(46.dp)
                                         )
                                     }
 
