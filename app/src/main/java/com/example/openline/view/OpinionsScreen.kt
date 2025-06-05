@@ -14,8 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.outlined.ThumbDown
-import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -37,6 +37,7 @@ import com.example.app.ui.theme.*
 import com.example.openline.R
 import com.example.openline.model.Opinion
 import com.example.openline.utils.timeAgo
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -79,6 +80,17 @@ fun OpinionScreen(
 
     val density = LocalDensity.current
     val dragThresholdPx = with(density) { 60.dp.toPx() }
+
+    // Calculate actual percentages based on current likes/dislikes
+    val totalVotes = opinion.likes + opinion.dislikes
+    val disagreePercentage = if (totalVotes > 0) (opinion.dislikes.toFloat() / totalVotes * 100) else 50f
+    val agreePercentage = if (totalVotes > 0) (opinion.likes.toFloat() / totalVotes * 100) else 50f
+
+    // Animated percentage for the bar (only animate after vote changes, not during drag)
+    val animatedDisagreePercentage by animateFloatAsState(
+        targetValue = disagreePercentage,
+        animationSpec = tween(durationMillis = 500)
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Background circles
@@ -179,108 +191,108 @@ fun OpinionScreen(
                                         )
                                     }
                             ) {
-                                Column(Modifier.padding(12.dp)) {
+                                Column(Modifier.padding(16.dp)) {
                                     Text(
                                         opinion.text,
                                         style = MaterialTheme.typography.bodyLarge.copy(
                                             fontStyle = FontStyle.Italic,
-                                            fontSize = 24.sp
+                                            fontSize = 32.sp
                                         ),
                                         color = TextPrimary
                                     )
-                                    Spacer(Modifier.height(6.dp))
+                                    Spacer(Modifier.height(12.dp))
+
+                                    // Author info
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            Icons.Filled.ArrowBack,
+                                            Icons.Filled.Person,
                                             contentDescription = null,
                                             tint = TextSecondary,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(35.dp)
                                         )
                                         Spacer(Modifier.width(6.dp))
                                         Text(
                                             "$author • ${opinion.timestamp.toLocalTime()}",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.bodyLarge,
                                             color = TextSecondary
                                         )
                                     }
-                                    Spacer(Modifier.height(10.dp))
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceEvenly,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        // Agree
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            OutlinedButton(
-                                                onClick = {
-                                                    onReactOpinion(
-                                                        opinion.id.toString(),
-                                                        true
-                                                    )
-                                                },
-                                                border = BorderStroke(1.dp, AgreeGreen),
-                                                colors = ButtonDefaults.outlinedButtonColors(
-                                                    contentColor = AgreeGreen,
-                                                    containerColor = if (userReaction == true) AgreeGreen.copy(
-                                                        alpha = 0.18f
-                                                    ) else Color.Transparent
-                                                ),
-                                                modifier = Modifier.defaultMinSize(minHeight = 32.dp),
-                                                contentPadding = PaddingValues(
-                                                    horizontal = 8.dp,
-                                                    vertical = 4.dp
-                                                ),
-                                                enabled = userReaction != true
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.ThumbUp,
-                                                    contentDescription = "Agree",
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(Modifier.width(4.dp))
-                                                Text("AGREE", fontSize = 12.sp)
-                                            }
-                                            Spacer(Modifier.width(4.dp))
+
+                                    Spacer(Modifier.height(16.dp))
+
+                                    // Percentage Bar Design
+                                    Column {
+                                        // Percentage numbers (show actual percentages, no drag influence)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
                                             Text(
-                                                "${opinion.likes}",
-                                                style = MaterialTheme.typography.bodySmall
+                                                "${disagreePercentage.toInt()}%",
+                                                style = MaterialTheme.typography.headlineSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 24.sp
+                                                ),
+                                                color = Color(0xFF8B4513) // Brown color for disagree
+                                            )
+                                            Text(
+                                                "${agreePercentage.toInt()}%",
+                                                style = MaterialTheme.typography.headlineSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 24.sp
+                                                ),
+                                                color = Color(0xFF4A90E2) // Blue color for agree
                                             )
                                         }
-                                        // Disagree
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            OutlinedButton(
-                                                onClick = {
-                                                    onReactOpinion(
-                                                        opinion.id.toString(),
-                                                        false
-                                                    )
-                                                },
-                                                border = BorderStroke(1.dp, DisagreeRed),
-                                                colors = ButtonDefaults.outlinedButtonColors(
-                                                    contentColor = DisagreeRed,
-                                                    containerColor = if (userReaction == false) DisagreeRed.copy(
-                                                        alpha = 0.18f
-                                                    ) else Color.Transparent
-                                                ),
-                                                modifier = Modifier.defaultMinSize(minHeight = 32.dp),
-                                                contentPadding = PaddingValues(
-                                                    horizontal = 8.dp,
-                                                    vertical = 4.dp
-                                                ),
-                                                enabled = userReaction != false
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.ThumbDown,
-                                                    contentDescription = "Disagree",
-                                                    modifier = Modifier.size(16.dp)
+
+                                        Spacer(Modifier.height(8.dp))
+
+                                        // Animated percentage bar (animates based on actual vote changes)
+                                        val animatedDisagreeWidth by animateFloatAsState(
+                                            targetValue = animatedDisagreePercentage / 100f,
+                                            animationSpec = tween(500)
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(32.dp)
+                                                .background(
+                                                    Color.LightGray.copy(alpha = 0.3f),
+                                                    RoundedCornerShape(16.dp)
                                                 )
-                                                Spacer(Modifier.width(4.dp))
-                                                Text("DISAGREE", fontSize = 12.sp)
-                                            }
-                                            Spacer(Modifier.width(4.dp))
-                                            Text(
-                                                "${opinion.dislikes}",
-                                                style = MaterialTheme.typography.bodySmall
+                                        ) {
+                                            // Disagree section (left/brown)
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(animatedDisagreeWidth)
+                                                    .background(
+                                                        Color(0xFF8B4513),
+                                                        RoundedCornerShape(
+                                                            topStart = 16.dp,
+                                                            bottomStart = 16.dp,
+                                                            topEnd = if (animatedDisagreeWidth >= 0.99f) 16.dp else 0.dp,
+                                                            bottomEnd = if (animatedDisagreeWidth >= 0.99f) 16.dp else 0.dp
+                                                        )
+                                                    )
+                                            )
+
+                                            // Agree section (right/blue) - positioned from the right
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(1f - animatedDisagreeWidth)
+                                                    .align(Alignment.CenterEnd)
+                                                    .background(
+                                                        Color(0xFF4A90E2),
+                                                        RoundedCornerShape(
+                                                            topEnd = 16.dp,
+                                                            bottomEnd = 16.dp,
+                                                            topStart = if (animatedDisagreeWidth <= 0.01f) 16.dp else 0.dp,
+                                                            bottomStart = if (animatedDisagreeWidth <= 0.01f) 16.dp else 0.dp
+                                                        )
+                                                    )
                                             )
                                         }
                                     }
@@ -316,17 +328,17 @@ fun OpinionScreen(
                                 Image(
                                     painter = painterResource(id = R.drawable.brush),
                                     contentDescription = "Brush - Like",
-                                    modifier = Modifier.size(96.dp)
+                                    modifier = Modifier.size(132.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     "LIKE",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MaterialTheme.typography.labelLarge,
                                     color = AgreeGreen
                                 )
                                 Text(
                                     "${opinion.likes}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodyLarge,
                                     color = TextSecondary
                                 )
                             }
@@ -351,17 +363,17 @@ fun OpinionScreen(
                                 Image(
                                     painter = painterResource(id = R.drawable.stain),
                                     contentDescription = "Mud - Dislike",
-                                    modifier = Modifier.size(96.dp)
+                                    modifier = Modifier.size(132.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     "DISLIKE",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = MaterialTheme.typography.labelLarge,
                                     color = DisagreeRed
                                 )
                                 Text(
                                     "${opinion.dislikes}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodyLarge,
                                     color = TextSecondary
                                 )
                             }
