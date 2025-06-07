@@ -2,9 +2,7 @@ package com.example.openline.view
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -36,8 +34,7 @@ import androidx.compose.ui.zIndex
 import com.example.app.ui.theme.*
 import com.example.openline.R
 import com.example.openline.model.Opinion
-import com.example.openline.utils.timeAgo
-import kotlin.math.abs
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -50,9 +47,12 @@ fun OpinionScreen(
     onReactOpinion: (String, Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
 
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
+    var shouldShowFullScreenBubbles by remember { mutableStateOf(false) }
+    var isBubbleFadingOut by remember { mutableStateOf(false) }
 
     val cardScale by animateFloatAsState(
         targetValue = if (isDragging) 1.1f else 1f,
@@ -72,68 +72,112 @@ fun OpinionScreen(
         animationSpec = tween(300)
     )
 
+    // Smooth bubble fade out animation
+    val bubbleAlpha by animateFloatAsState(
+        targetValue = if (shouldShowFullScreenBubbles && !isBubbleFadingOut) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isBubbleFadingOut) 1000 else 300, // Slower fade out
+            easing = if (isBubbleFadingOut) FastOutSlowInEasing else LinearEasing
+        ),
+        finishedListener = {
+            if (isBubbleFadingOut && it == 0f) {
+                shouldShowFullScreenBubbles = false
+                isBubbleFadingOut = false
+            }
+        }
+    )
+
     LaunchedEffect(resetOffsetX, resetOffsetY, isDragging) {
         if (!isDragging) {
             dragOffset = Offset(resetOffsetX, resetOffsetY)
         }
     }
 
-    val density = LocalDensity.current
     val dragThresholdPx = with(density) { 60.dp.toPx() }
 
-    // Calculate actual percentages based on current likes/dislikes
     val totalVotes = opinion.likes + opinion.dislikes
     val disagreePercentage = if (totalVotes > 0) (opinion.dislikes.toFloat() / totalVotes * 100) else 50f
     val agreePercentage = if (totalVotes > 0) (opinion.likes.toFloat() / totalVotes * 100) else 50f
 
-    // Animated percentage for the bar (only animate after vote changes, not during drag)
     val animatedDisagreePercentage by animateFloatAsState(
         targetValue = disagreePercentage,
         animationSpec = tween(durationMillis = 500)
     )
 
+    fun triggerFullScreenBubbles() {
+        shouldShowFullScreenBubbles = true
+        isBubbleFadingOut = false
+    }
+
+    LaunchedEffect(shouldShowFullScreenBubbles) {
+        if (shouldShowFullScreenBubbles && !isBubbleFadingOut) {
+            // Show bubbles for 3 seconds, then start fade out
+            delay(3000)
+            isBubbleFadingOut = true
+        }
+    }
+
+    // Full screen container with bubble wash as background
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background circles
+        // Full screen bubble wash - show when triggered with animated alpha
+        if (shouldShowFullScreenBubbles) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(bubbleAlpha)
+            ) {
+                FullScreenBubbleWash(
+                    bubbleCount = 180,
+                    minBubbleSize = 30.dp,
+                    maxBubbleSize = 200.dp,
+                    animationDurationMs = 1500,
+                    pauseDurationMs = 2500,
+                    maxAlpha = 0.9f
+                )
+            }
+        }
+
+        // Background design circles
         Box(
             Modifier
                 .size(300.dp)
-                .offset(x = -200.dp, y = -200.dp)
+                .offset(x = (-200).dp, y = (-200).dp)
                 .background(Color(85 / 255f, 138 / 255f, 183 / 255f), CircleShape)
-                .alpha(0.6f)
+                .alpha(0.4f)
         )
         Box(
             Modifier
                 .size(400.dp)
                 .offset(x = 200.dp, y = 150.dp)
                 .background(Color(105 / 255f, 165 / 255f, 148 / 255f), CircleShape)
-                .alpha(0.6f)
+                .alpha(0.4f)
         )
 
-        Column(Modifier.fillMaxSize()) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = { Text("Opinion for \"Item\" ") },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                            }
-                        },
-                        colors = TopAppBarDefaults.smallTopAppBarColors(
-                            containerColor = ColorPrimary,
-                            titleContentColor = ColorOnPrimary,
-                            navigationIconContentColor = ColorOnPrimary
-                        )
+        // Main content
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Opinion for \"Item\" ") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.smallTopAppBarColors(
+                        containerColor = ColorPrimary,
+                        titleContentColor = ColorOnPrimary,
+                        navigationIconContentColor = ColorOnPrimary
                     )
-                },
-                containerColor = CardBackground,
-                content = { innerPadding ->
-                    Column(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        // Draggable Opinion Card
+                )
+            },
+            containerColor = Color.Transparent, // Make scaffold background transparent
+            content = { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    Column(Modifier.fillMaxSize()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -164,17 +208,12 @@ fun OpinionScreen(
                                                     val threshold = 120.dp.toPx()
                                                     when {
                                                         dragOffset.x < -threshold -> {
-                                                            onReactOpinion(
-                                                                opinion.id.toString(),
-                                                                true
-                                                            )
+                                                            triggerFullScreenBubbles()
+                                                            onReactOpinion(opinion.id.toString(), true)
                                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         }
                                                         dragOffset.x > threshold -> {
-                                                            onReactOpinion(
-                                                                opinion.id.toString(),
-                                                                false
-                                                            )
+                                                            onReactOpinion(opinion.id.toString(), false)
                                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         }
                                                     }
@@ -183,10 +222,7 @@ fun OpinionScreen(
                                                 }
                                             },
                                             onDrag = { _, dragAmount ->
-                                                dragOffset += Offset(
-                                                    dragAmount.x,
-                                                    dragAmount.y
-                                                )
+                                                dragOffset += Offset(dragAmount.x, dragAmount.y)
                                             }
                                         )
                                     }
@@ -201,8 +237,6 @@ fun OpinionScreen(
                                         color = TextPrimary
                                     )
                                     Spacer(Modifier.height(12.dp))
-
-                                    // Author info
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Filled.Person,
@@ -217,12 +251,8 @@ fun OpinionScreen(
                                             color = TextSecondary
                                         )
                                     }
-
                                     Spacer(Modifier.height(16.dp))
-
-                                    // Percentage Bar Design
                                     Column {
-                                        // Percentage numbers (show actual percentages, no drag influence)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
@@ -233,7 +263,7 @@ fun OpinionScreen(
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 24.sp
                                                 ),
-                                                color = Color(0xFF8B4513) // Brown color for disagree
+                                                color = Color(0xFF8B4513)
                                             )
                                             Text(
                                                 "${agreePercentage.toInt()}%",
@@ -241,18 +271,14 @@ fun OpinionScreen(
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 24.sp
                                                 ),
-                                                color = Color(0xFF4A90E2) // Blue color for agree
+                                                color = Color(0xFF4A90E2)
                                             )
                                         }
-
                                         Spacer(Modifier.height(8.dp))
-
-                                        // Animated percentage bar (animates based on actual vote changes)
                                         val animatedDisagreeWidth by animateFloatAsState(
                                             targetValue = animatedDisagreePercentage / 100f,
                                             animationSpec = tween(500)
                                         )
-
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -262,7 +288,6 @@ fun OpinionScreen(
                                                     RoundedCornerShape(16.dp)
                                                 )
                                         ) {
-                                            // Disagree section (left/brown)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxHeight()
@@ -277,8 +302,6 @@ fun OpinionScreen(
                                                         )
                                                     )
                                             )
-
-                                            // Agree section (right/blue) - positioned from the right
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxHeight()
@@ -299,10 +322,7 @@ fun OpinionScreen(
                                 }
                             }
                         }
-
                         Spacer(modifier = Modifier.height(32.dp))
-
-                        // --- DRAG TARGETS ---
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -318,7 +338,6 @@ fun OpinionScreen(
                                 targetValue = if (isDragging && dragOffset.x < -dragThresholdPx) 1f else 0.6f,
                                 animationSpec = tween(200)
                             )
-
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
@@ -342,9 +361,7 @@ fun OpinionScreen(
                                     color = TextSecondary
                                 )
                             }
-
                             Spacer(modifier = Modifier.width(64.dp))
-
                             val mudScale by animateFloatAsState(
                                 targetValue = if (isDragging && dragOffset.x > dragThresholdPx) 1.3f else 1f,
                                 animationSpec = tween(200)
@@ -353,7 +370,6 @@ fun OpinionScreen(
                                 targetValue = if (isDragging && dragOffset.x > dragThresholdPx) 1f else 0.6f,
                                 animationSpec = tween(200)
                             )
-
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
@@ -378,8 +394,6 @@ fun OpinionScreen(
                                 )
                             }
                         }
-
-                        // Instruction text
                         Text(
                             "Drag the opinion card to vote!",
                             style = MaterialTheme.typography.bodyMedium,
@@ -391,7 +405,7 @@ fun OpinionScreen(
                         )
                     }
                 }
-            )
-        }
+            }
+        )
     }
 }
