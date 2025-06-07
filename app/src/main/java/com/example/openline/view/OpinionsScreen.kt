@@ -1,5 +1,6 @@
 package com.example.openline.view
 
+import MudSplashAnimation
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.*
@@ -53,6 +54,7 @@ fun OpinionScreen(
     var isDragging by remember { mutableStateOf(false) }
     var shouldShowFullScreenBubbles by remember { mutableStateOf(false) }
     var isBubbleFadingOut by remember { mutableStateOf(false) }
+    var shouldShowMudSplash by remember { mutableStateOf(false) }
 
     val cardScale by animateFloatAsState(
         targetValue = if (isDragging) 1.1f else 1f,
@@ -109,6 +111,10 @@ fun OpinionScreen(
         isBubbleFadingOut = false
     }
 
+    fun triggerMudSplash() {
+        shouldShowMudSplash = true
+    }
+
     LaunchedEffect(shouldShowFullScreenBubbles) {
         if (shouldShowFullScreenBubbles && !isBubbleFadingOut) {
             // Show bubbles for 3 seconds, then start fade out
@@ -119,24 +125,6 @@ fun OpinionScreen(
 
     // Full screen container with bubble wash as background
     Box(modifier = Modifier.fillMaxSize()) {
-        // Full screen bubble wash - show when triggered with animated alpha
-        if (shouldShowFullScreenBubbles) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(bubbleAlpha)
-            ) {
-                FullScreenBubbleWash(
-                    bubbleCount = 180,
-                    minBubbleSize = 30.dp,
-                    maxBubbleSize = 200.dp,
-                    animationDurationMs = 1500,
-                    pauseDurationMs = 2500,
-                    maxAlpha = 0.9f
-                )
-            }
-        }
-
         // Background design circles
         Box(
             Modifier
@@ -153,7 +141,7 @@ fun OpinionScreen(
                 .alpha(0.4f)
         )
 
-        // Main content
+        // Main content with Scaffold
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -213,6 +201,7 @@ fun OpinionScreen(
                                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         }
                                                         dragOffset.x > threshold -> {
+                                                            triggerMudSplash()
                                                             onReactOpinion(opinion.id.toString(), false)
                                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                         }
@@ -407,5 +396,40 @@ fun OpinionScreen(
                 }
             }
         )
+
+        // Full screen bubble wash - show when triggered with animated alpha
+        // Placed after Scaffold to overlay on top
+        if (shouldShowFullScreenBubbles) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(bubbleAlpha)
+                    .zIndex(100f) // Ensure it's on top
+            ) {
+                FullScreenBubbleWash(
+                    bubbleCount = 180,
+                    minBubbleSize = 30.dp,
+                    maxBubbleSize = 200.dp,
+                    animationDurationMs = 1500,
+                    pauseDurationMs = 2500,
+                    maxAlpha = 0.9f
+                )
+            }
+        }
+
+        // Mud splash animation - show when triggered
+        // Positioned to fill entire screen height and overlay on top
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(99f) // Ensure it's on top of content but below bubbles
+        ) {
+            MudSplashAnimation(
+                isTriggered = shouldShowMudSplash,
+                onAnimationComplete = {
+                    shouldShowMudSplash = false
+                }
+            )
+        }
     }
 }
