@@ -145,7 +145,7 @@ fun OpinionScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Opinion for \"Item\" ") },
+                    title = { Text("Opinion for \"Item\"") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -172,8 +172,12 @@ fun OpinionScreen(
                                 .padding(12.dp)
                         ) {
                             Card(
-                                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-                                elevation = CardDefaults.cardElevation(if (isDragging) 12.dp else 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (isDragging) 12.dp else 6.dp
+                                ),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -221,7 +225,7 @@ fun OpinionScreen(
                                         opinion.text,
                                         style = MaterialTheme.typography.bodyLarge.copy(
                                             fontStyle = FontStyle.Italic,
-                                            fontSize = 32.sp
+                                            fontSize = 26.sp
                                         ),
                                         color = TextPrimary
                                     )

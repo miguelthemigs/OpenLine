@@ -1,3 +1,5 @@
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -13,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import com.example.openline.R
 
+@RequiresApi(Build.VERSION_CODES.HONEYCOMB_MR2)
 @Composable
 fun MudSplashAnimation(
     isTriggered: Boolean,
