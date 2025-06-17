@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ fun OpinionScreen(
     opinion: Opinion,
     author: String,
     userReaction: Boolean?,
+    onLogout: () -> Unit,
     onBack: () -> Unit,
     onReactOpinion: (String, Boolean) -> Unit
 ) {
@@ -151,12 +153,22 @@ fun OpinionScreen(
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
+                    actions = {
+                        IconButton(onClick = onLogout) {
+                            Icon(
+                                Icons.Filled.ExitToApp,  // or Icons.Filled.Logout
+                                contentDescription = "Logout",
+                                tint = ColorOnPrimary
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.smallTopAppBarColors(
                         containerColor = ColorPrimary,
                         titleContentColor = ColorOnPrimary,
                         navigationIconContentColor = ColorOnPrimary
                     )
                 )
+
             },
             containerColor = Color.Transparent, // Make scaffold background transparent
             content = { innerPadding ->

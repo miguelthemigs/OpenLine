@@ -1,17 +1,21 @@
 package com.example.openline.viewmodel
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
+import com.example.openline.storage.TokenManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val tokenManager = TokenManager(application.applicationContext)
 
     companion object {
         private const val TAG = "AuthViewModel"
@@ -21,6 +25,18 @@ class AuthViewModel : ViewModel() {
     var token: String? = null
     var role: String? = null
     var name: String? = null
+
+    suspend fun loadToken(): String? {
+        token = tokenManager.getToken()
+        return token
+    }
+
+    private fun persistToken(jwt: String) {
+        token = jwt
+        viewModelScope.launch {
+            tokenManager.saveToken(jwt)
+        }
+    }
 
     fun register(name: String, email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
@@ -49,8 +65,10 @@ class AuthViewModel : ViewModel() {
                     if (code == 201) {
                         val raw = conn.inputStream.bufferedReader().readText()
                         val json = JSONObject(raw)
-                        token = json.getString("token")
+                        val jwt = json.getString("token")
+                        token = jwt
                         role = json.getString("role")
+                        persistToken(jwt)
                         null
                     } else {
                         "Failed to register: $code"
@@ -95,9 +113,11 @@ class AuthViewModel : ViewModel() {
                     if (code == 200) {
                         val raw = conn.inputStream.bufferedReader().readText()
                         val json = JSONObject(raw)
-                        token = json.getString("token")
+                        val jwt = json.getString("token")
+                        token = jwt
                         role = json.getString("role")
                         name = json.getString("name")
+                        persistToken(jwt)
                         null
                     } else {
                         "Invalid credentials: $code"
@@ -115,4 +135,11 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
+    fun logout() {
+        token = null
+        viewModelScope.launch {
+            tokenManager.clearToken()
+        }
+    }
+
 }

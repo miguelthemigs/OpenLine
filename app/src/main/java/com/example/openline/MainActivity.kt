@@ -30,85 +30,99 @@ class MainActivity : ComponentActivity() {
         setContent {
             OpenLineTheme {
                 val navController = rememberNavController()
+                val authViewModel: AuthViewModel = viewModel()
+                var startDestination by remember { mutableStateOf<String?>(null) }
 
-                NavHost(navController, startDestination = "login") {
+                LaunchedEffect(Unit) {
+                    val token = authViewModel.loadToken()
+                    startDestination = if (token != null) "opinions" else "login"
+                }
 
-                    // Login Screen
-                    composable("login") {
-                        LoginScreen(
-                            onLoginSuccess = { navController.navigate("opinions") },
-                            onNavigateToRegister = { navController.navigate("register") }
-                        )
-                    }
+                if (startDestination == null) {
+                    CircularProgressIndicator()
+                } else {
+                    NavHost(navController, startDestination = startDestination!!) {
 
-                    // Register Screen
-                    composable("register") {
-                        RegisterScreen(
-                            onRegisterSuccess = { navController.navigate("opinions") },
-                            onNavigateToLogin = { navController.navigate("login") }
-                        )
-                    }
-
-                    // Opinion Screen (fully loading from backend as you already built)
-                    composable("opinions") {
-                        val opinionId = "9c30f864-9499-4d57-9a2b-fd2c2d427532"
-                        val vm: OpinionsViewModel = viewModel()
-                        val scope = rememberCoroutineScope()
-
-                        var opinion by remember { mutableStateOf<Opinion?>(null) }
-
-                        var userReaction by remember { mutableStateOf<Boolean?>(null) }
-                        var opinionLikes by remember { mutableStateOf(0) }
-                        var opinionDislikes by remember { mutableStateOf(0) }
-
-                        LaunchedEffect(opinionId) {
-                            vm.getOpinion(opinionId) { op ->
-                                opinion = op
-                                if (op != null) {
-                                    opinionLikes = op.likes
-                                    opinionDislikes = op.dislikes
-                                }
-                                userReaction = null
-                            }
+                        composable("login") {
+                            LoginScreen(
+                                onLoginSuccess = { navController.navigate("opinions") },
+                                onNavigateToRegister = { navController.navigate("register") }
+                            )
                         }
 
-                        if (opinion == null) {
-                            CircularProgressIndicator()
-                        } else {
-                            OpinionScreen(
-                                opinion = opinion!!.copy(
-                                    likes = opinionLikes,
-                                    dislikes = opinionDislikes
-                                ),
-                                author = "Ballerina Cappuccina",
-                                userReaction = userReaction,
-                                onBack = { finish() },
-                                onReactOpinion = { id, like ->
-                                    userReaction = like
-                                    if (like) {
-                                        opinionLikes += 1
-                                    } else {
-                                        opinionDislikes += 1
-                                    }
+                        composable("register") {
+                            RegisterScreen(
+                                onRegisterSuccess = { navController.navigate("opinions") },
+                                onNavigateToLogin = { navController.navigate("login") }
+                            )
+                        }
 
-                                    scope.launch {
-                                        try {
-                                            vm.reactToOpinion(id, like)
-                                            vm.getOpinion(id) { updated ->
-                                                updated?.let {
-                                                    opinion = it
-                                                    opinionLikes = it.likes
-                                                    opinionDislikes = it.dislikes
+                        composable("opinions") {
+                            val opinionId = "9c30f864-9499-4d57-9a2b-fd2c2d427532"
+                            val vm: OpinionsViewModel = viewModel()
+                            val scope = rememberCoroutineScope()
+
+                            var opinion by remember { mutableStateOf<Opinion?>(null) }
+
+                            var userReaction by remember { mutableStateOf<Boolean?>(null) }
+                            var opinionLikes by remember { mutableStateOf(0) }
+                            var opinionDislikes by remember { mutableStateOf(0) }
+
+                            LaunchedEffect(opinionId) {
+                                vm.getOpinion(opinionId) { op ->
+                                    opinion = op
+                                    if (op != null) {
+                                        opinionLikes = op.likes
+                                        opinionDislikes = op.dislikes
+                                    }
+                                    userReaction = null
+                                }
+                            }
+
+                            if (opinion == null) {
+                                CircularProgressIndicator()
+                            } else {
+                                OpinionScreen(
+                                    opinion = opinion!!.copy(
+                                        likes = opinionLikes,
+                                        dislikes = opinionDislikes
+                                    ),
+                                    author = "Ballerina Cappuccina",
+                                    userReaction = userReaction,
+                                    onBack = { finish() },
+                                    onReactOpinion = { id, like ->
+                                        userReaction = like
+                                        if (like) {
+                                            opinionLikes += 1
+                                        } else {
+                                            opinionDislikes += 1
+                                        }
+
+                                        scope.launch {
+                                            try {
+                                                vm.reactToOpinion(id, like)
+                                                vm.getOpinion(id) { updated ->
+                                                    updated?.let {
+                                                        opinion = it
+                                                        opinionLikes = it.likes
+                                                        opinionDislikes = it.dislikes
+                                                    }
                                                 }
+                                            } catch (e: Exception) {
+                                                println("Error reacting: ${e.message}")
+                                                userReaction = null
+                                                if (like) opinionLikes -= 1 else opinionDislikes -= 1
                                             }
-                                        } catch (e: Exception) {
-                                            println("Error reacting: ${e.message}")
-                                            userReaction = null
-                                            if (like) opinionLikes -= 1 else opinionDislikes -= 1
+                                        }
+                                    },
+                                    onLogout = {
+                                        authViewModel.logout()
+                                        navController.navigate("login") {
+                                            popUpTo("opinions") { inclusive = true }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
