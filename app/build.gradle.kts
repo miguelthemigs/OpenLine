@@ -55,11 +55,16 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     // ViewModel core
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+    implementation("androidx.datastore:datastore-preferences-core:1.1.7")
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
+
+
 
 // Compose integration for ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
 
     implementation(libs.androidx.tv.material)
+    implementation(libs.androidx.navigation.compose.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 data class Comment(
-    val id: UUID,
+    var id: UUID,
     val opinionId: UUID,
     val userId: UUID,
     val text: String,

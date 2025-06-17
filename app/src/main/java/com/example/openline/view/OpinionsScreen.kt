@@ -1,288 +1,451 @@
-package com.example.openline.ui.screens
+package com.example.openline.view
 
+import MudSplashAnimation
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.outlined.CoPresent
-import androidx.compose.material.icons.outlined.ThumbDown
-import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.app.ui.theme.*
-import com.example.openline.utils.timeAgo
-import com.example.openline.model.Comment
+import com.example.openline.R
 import com.example.openline.model.Opinion
-import com.example.openline.viewmodel.UsersViewModel
-
-import androidx.lifecycle.viewmodel.compose.viewModel
-
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OpinionScreen(
     opinion: Opinion,
-    comments: List<Comment>,
     author: String,
+    userReaction: Boolean?,
+    onLogout: () -> Unit,
     onBack: () -> Unit,
-    onReactOpinion: (opinionId: String, like: Boolean) -> Unit,
-    onReactComment: (commentId: String, like: Boolean) -> Unit,
-    onReply: (opinionId: String) -> Unit,
-    onSubmitReply: (opinionId: String, text: String) -> Unit // 🔹 Added callback
+    onReactOpinion: (String, Boolean) -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf("Top") }
-    val displayedComments = remember(selectedTab, comments) {
-        if (selectedTab == "Top") comments.sortedByDescending { it.likes }
-        else comments.sortedByDescending { it.timestamp }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var isDragging by remember { mutableStateOf(false) }
+    var shouldShowFullScreenBubbles by remember { mutableStateOf(false) }
+    var isBubbleFadingOut by remember { mutableStateOf(false) }
+    var shouldShowMudSplash by remember { mutableStateOf(false) }
+
+    val cardScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.1f else 1f,
+        animationSpec = tween(200)
+    )
+    val cardRotation by animateFloatAsState(
+        targetValue = dragOffset.x * 0.02f,
+        animationSpec = tween(200)
+    )
+
+    val resetOffsetX by animateFloatAsState(
+        targetValue = if (!isDragging) 0f else dragOffset.x,
+        animationSpec = tween(300)
+    )
+    val resetOffsetY by animateFloatAsState(
+        targetValue = if (!isDragging) 0f else dragOffset.y,
+        animationSpec = tween(300)
+    )
+
+    // Smooth bubble fade out animation
+    val bubbleAlpha by animateFloatAsState(
+        targetValue = if (shouldShowFullScreenBubbles && !isBubbleFadingOut) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isBubbleFadingOut) 1000 else 300, // Slower fade out
+            easing = if (isBubbleFadingOut) FastOutSlowInEasing else LinearEasing
+        ),
+        finishedListener = {
+            if (isBubbleFadingOut && it == 0f) {
+                shouldShowFullScreenBubbles = false
+                isBubbleFadingOut = false
+            }
+        }
+    )
+
+    LaunchedEffect(resetOffsetX, resetOffsetY, isDragging) {
+        if (!isDragging) {
+            dragOffset = Offset(resetOffsetX, resetOffsetY)
+        }
     }
 
-    var showReplyField by remember { mutableStateOf(false) }
-    var replyText by remember { mutableStateOf("") }
+    val dragThresholdPx = with(density) { 60.dp.toPx() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Opinion for “Item”") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.smallTopAppBarColors(
-                    containerColor = ColorPrimary,
-                    titleContentColor = ColorOnPrimary,
-                    navigationIconContentColor = ColorOnPrimary
-                )
-            )
-        },
-        containerColor = CardBackground
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // — Opinion Card —
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = opinion.text,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic),
-                        color = TextPrimary
+    val totalVotes = opinion.likes + opinion.dislikes
+    val disagreePercentage = if (totalVotes > 0) (opinion.dislikes.toFloat() / totalVotes * 100) else 50f
+    val agreePercentage = if (totalVotes > 0) (opinion.likes.toFloat() / totalVotes * 100) else 50f
+
+    val animatedDisagreePercentage by animateFloatAsState(
+        targetValue = disagreePercentage,
+        animationSpec = tween(durationMillis = 500)
+    )
+
+    fun triggerFullScreenBubbles() {
+        shouldShowFullScreenBubbles = true
+        isBubbleFadingOut = false
+    }
+
+    fun triggerMudSplash() {
+        shouldShowMudSplash = true
+    }
+
+    LaunchedEffect(shouldShowFullScreenBubbles) {
+        if (shouldShowFullScreenBubbles && !isBubbleFadingOut) {
+            // Show bubbles for 3 seconds, then start fade out
+            delay(3000)
+            isBubbleFadingOut = true
+        }
+    }
+
+    // Full screen container with bubble wash as background
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background design circles
+        Box(
+            Modifier
+                .size(300.dp)
+                .offset(x = (-200).dp, y = (-200).dp)
+                .background(Color(85 / 255f, 138 / 255f, 183 / 255f), CircleShape)
+                .alpha(0.4f)
+        )
+        Box(
+            Modifier
+                .size(400.dp)
+                .offset(x = 200.dp, y = 150.dp)
+                .background(Color(105 / 255f, 165 / 255f, 148 / 255f), CircleShape)
+                .alpha(0.4f)
+        )
+
+        // Main content with Scaffold
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Opinion for \"Item\"") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onLogout) {
+                            Icon(
+                                Icons.Filled.ExitToApp,  // or Icons.Filled.Logout
+                                contentDescription = "Logout",
+                                tint = ColorOnPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.smallTopAppBarColors(
+                        containerColor = ColorPrimary,
+                        titleContentColor = ColorOnPrimary,
+                        navigationIconContentColor = ColorOnPrimary
                     )
+                )
 
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "$author • ${opinion.timestamp.toLocalTime()}",
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(
-                            onClick = { onReactOpinion(opinion.id.toString(), true) },
-                            border = BorderStroke(1.dp, AgreeGreen),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AgreeGreen)
+            },
+            containerColor = Color.Transparent, // Make scaffold background transparent
+            content = { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    Column(Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
                         ) {
-                            Icon(Icons.Outlined.ThumbUp, contentDescription = "Agree")
-                            Spacer(Modifier.width(4.dp))
-                            Text("AGREE")
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        Text("${opinion.likes}", color = TextPrimary)
-
-                        Spacer(Modifier.width(24.dp))
-
-                        OutlinedButton(
-                            onClick = { onReactOpinion(opinion.id.toString(), false) },
-                            border = BorderStroke(1.dp, DisagreeRed),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DisagreeRed)
-                        ) {
-                            Icon(Icons.Outlined.ThumbDown, contentDescription = "Disagree")
-                            Spacer(Modifier.width(4.dp))
-                            Text("DISAGREE")
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        Text("${opinion.dislikes}", color = TextPrimary)
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Button(onClick = { showReplyField = true }) {
-                        Text("Reply")
-                    }
-
-                    if (showReplyField) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = replyText,
-                            onValueChange = { replyText = it },
-                            label = { Text("Write a reply...") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                onSubmitReply(opinion.id.toString(), replyText)
-                                replyText = ""
-                                showReplyField = false
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (isDragging) 12.dp else 6.dp
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (isDragging) 10f else 1f)
+                                    .graphicsLayer {
+                                        translationX = dragOffset.x
+                                        translationY = dragOffset.y
+                                        scaleX = cardScale
+                                        scaleY = cardScale
+                                        rotationZ = cardRotation
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                isDragging = true
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            },
+                                            onDragEnd = {
+                                                if (isDragging) {
+                                                    val threshold = 120.dp.toPx()
+                                                    when {
+                                                        dragOffset.x < -threshold -> {
+                                                            triggerFullScreenBubbles()
+                                                            onReactOpinion(opinion.id.toString(), true)
+                                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        }
+                                                        dragOffset.x > threshold -> {
+                                                            triggerMudSplash()
+                                                            onReactOpinion(opinion.id.toString(), false)
+                                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        }
+                                                    }
+                                                    isDragging = false
+                                                    dragOffset = Offset.Zero
+                                                }
+                                            },
+                                            onDrag = { _, dragAmount ->
+                                                dragOffset += Offset(dragAmount.x, dragAmount.y)
+                                            }
+                                        )
+                                    }
+                            ) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(
+                                        opinion.text,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontStyle = FontStyle.Italic,
+                                            fontSize = 26.sp
+                                        ),
+                                        color = TextPrimary
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.Person,
+                                            contentDescription = null,
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(35.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "$author • ${opinion.timestamp.toLocalTime()}",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                    Spacer(Modifier.height(16.dp))
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                "${disagreePercentage.toInt()}%",
+                                                style = MaterialTheme.typography.headlineSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 24.sp
+                                                ),
+                                                color = Color(0xFF8B4513)
+                                            )
+                                            Text(
+                                                "${agreePercentage.toInt()}%",
+                                                style = MaterialTheme.typography.headlineSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 24.sp
+                                                ),
+                                                color = Color(0xFF4A90E2)
+                                            )
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        val animatedDisagreeWidth by animateFloatAsState(
+                                            targetValue = animatedDisagreePercentage / 100f,
+                                            animationSpec = tween(500)
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(32.dp)
+                                                .background(
+                                                    Color.LightGray.copy(alpha = 0.3f),
+                                                    RoundedCornerShape(16.dp)
+                                                )
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(animatedDisagreeWidth)
+                                                    .background(
+                                                        Color(0xFF8B4513),
+                                                        RoundedCornerShape(
+                                                            topStart = 16.dp,
+                                                            bottomStart = 16.dp,
+                                                            topEnd = if (animatedDisagreeWidth >= 0.99f) 16.dp else 0.dp,
+                                                            bottomEnd = if (animatedDisagreeWidth >= 0.99f) 16.dp else 0.dp
+                                                        )
+                                                    )
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(1f - animatedDisagreeWidth)
+                                                    .align(Alignment.CenterEnd)
+                                                    .background(
+                                                        Color(0xFF4A90E2),
+                                                        RoundedCornerShape(
+                                                            topEnd = 16.dp,
+                                                            bottomEnd = 16.dp,
+                                                            topStart = if (animatedDisagreeWidth <= 0.01f) 16.dp else 0.dp,
+                                                            bottomStart = if (animatedDisagreeWidth <= 0.01f) 16.dp else 0.dp
+                                                        )
+                                                    )
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                        ) {
-                            Text("Post Reply")
                         }
-                    }
-                }
-            }
-
-            Divider(color = DividerColor, thickness = 1.dp)
-
-            // — Tabs —
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                listOf("Top", "Newest").forEach { tab ->
-                    val isSelected = tab == selectedTab
-                    TextButton(
-                        onClick = { selectedTab = tab },
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = if (isSelected) ColorPrimary else CardBackground,
-                            contentColor = if (isSelected) ColorOnPrimary else TextSecondary
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            val brushScale by animateFloatAsState(
+                                targetValue = if (isDragging && dragOffset.x < -dragThresholdPx) 1.3f else 1f,
+                                animationSpec = tween(200)
+                            )
+                            val brushAlpha by animateFloatAsState(
+                                targetValue = if (isDragging && dragOffset.x < -dragThresholdPx) 1f else 0.6f,
+                                animationSpec = tween(200)
+                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .scale(brushScale)
+                                    .alpha(brushAlpha)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.brush),
+                                    contentDescription = "Brush - Like",
+                                    modifier = Modifier.size(132.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "LIKE",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = AgreeGreen
+                                )
+                                Text(
+                                    "${opinion.likes}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = TextSecondary
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(64.dp))
+                            val mudScale by animateFloatAsState(
+                                targetValue = if (isDragging && dragOffset.x > dragThresholdPx) 1.3f else 1f,
+                                animationSpec = tween(200)
+                            )
+                            val mudAlpha by animateFloatAsState(
+                                targetValue = if (isDragging && dragOffset.x > dragThresholdPx) 1f else 0.6f,
+                                animationSpec = tween(200)
+                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .scale(mudScale)
+                                    .alpha(mudAlpha)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.stain),
+                                    contentDescription = "Mud - Dislike",
+                                    modifier = Modifier.size(132.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "DISLIKE",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = DisagreeRed
+                                )
+                                Text(
+                                    "${opinion.dislikes}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                        Text(
+                            "Drag the opinion card to vote!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(16.dp)
+                                .alpha(if (isDragging) 0.3f else 0.7f)
                         )
-                    ) {
-                        Text(tab)
                     }
-                    Spacer(Modifier.width(8.dp))
                 }
             }
+        )
 
-            // — Comments List —
-            LazyColumn(
+        // Full screen bubble wash - show when triggered with animated alpha
+        // Placed after Scaffold to overlay on top
+        if (shouldShowFullScreenBubbles) {
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp)
+                    .alpha(bubbleAlpha)
+                    .zIndex(100f) // Ensure it's on top
             ) {
-                items(displayedComments) { comment ->
-                    CommentItem(
-                        comment = comment,
-                        onReact = { like -> onReactComment(comment.id.toString(), like) }
-                    )
-                    Spacer(Modifier.height(8.dp))
+                FullScreenBubbleWash(
+                    bubbleCount = 180,
+                    minBubbleSize = 30.dp,
+                    maxBubbleSize = 200.dp,
+                    animationDurationMs = 1500,
+                    pauseDurationMs = 2500,
+                    maxAlpha = 0.9f
+                )
+            }
+        }
+
+        // Mud splash animation - show when triggered
+        // Positioned to fill entire screen height and overlay on top
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(99f) // Ensure it's on top of content but below bubbles
+        ) {
+            MudSplashAnimation(
+                isTriggered = shouldShowMudSplash,
+                onAnimationComplete = {
+                    shouldShowMudSplash = false
                 }
-            }
+            )
         }
     }
 }
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun CommentItem(
-    comment: Comment,
-    onReact: (like: Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.CoPresent,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                UserName(
-                    userId = comment.userId.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = timeAgo(comment.timestamp),
-                    color = TextSecondary,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(comment.text, color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.ThumbUp,
-                    contentDescription = "Like",
-                    tint = TextSecondary,
-                    modifier = Modifier
-                        .clickable { onReact(true) }
-                        .size(20.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(comment.likes.toString(), color = TextSecondary)
-
-                Spacer(Modifier.width(16.dp))
-
-                Icon(
-                    Icons.Outlined.ThumbDown,
-                    contentDescription = "Dislike",
-                    tint = TextSecondary,
-                    modifier = Modifier
-                        .clickable { onReact(false) }
-                        .size(20.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(comment.dislikes.toString(), color = TextSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-fun UserName(userId: String, modifier: Modifier = Modifier) {
-    val viewModel: UsersViewModel = viewModel()
-    var name by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(userId) {
-        name = viewModel.fetchUserName(userId) ?: "Unknown"
-    }
-
-    Text(text = name ?: "Loading…", modifier = modifier)
-}
-

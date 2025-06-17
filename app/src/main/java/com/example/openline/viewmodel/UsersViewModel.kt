@@ -11,7 +11,8 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val BASE_URL = "https://openline-backend.up.railway.app"
+private const val BASE_URL = "https://openline-android-backend.onrender.com"
+//private const val BASE_URL = "http://android.openline.marijndemul.nl"
 private const val TAG = "UsersViewModel"
 
 class UsersViewModel : ViewModel() {
@@ -28,6 +29,7 @@ class UsersViewModel : ViewModel() {
                 connectTimeout = 5_000
                 readTimeout    = 5_000
             }
+            Log.d(TAG, "fetchUserName → GET $url")
 
             return@withContext if (conn.responseCode == 200) {
                 val rawBody = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
